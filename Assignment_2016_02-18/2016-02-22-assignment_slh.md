@@ -54,10 +54,10 @@ plot(p_grid, posterior, type = "b",
 mtext("100 points in grid")
 
 3) L W W L W W W 
-# define grid; only 7 data points
-p_grid <- seq( from=0 , to=1 , length.out=7 ) 
+# define grid; only 7 data points but 100 parameter estimates
+p_grid <- seq( from=0 , to=1 , length.out=100 ) 
 # define prior; this is uniform (3 points, all = 1)
-prior <- rep( 1 , 7 )
+prior <- rep( 1 , 100 )
 # compute likelihood at each value in grid; 3 W in 3 tosses
 likelihood <- dbinom( 5 , size=7 , prob=p_grid )
 # compute product of likelihood and prior
@@ -67,7 +67,7 @@ posterior <- unstd.posterior / sum(unstd.posterior)
 
 plot(p_grid, posterior, type = "b",
      xlab="probability of water", ylab= "posterior probability")
-mtext("7 points")
+mtext("100 points in grid")
 
 
 ### 2M2: Now assume a prior for p that is equal to zero when p < 0:5 and is a positive constant when p > or = 0:5. Again compute and plot the grid approximate posterior distribution for each of the sets of observations in the problem just above.
@@ -76,7 +76,7 @@ prior <- ifelse(p_grid <0.5, 0, 1)
 
 1) W W W 
 
-# define grid; only 3 data points
+# define grid; only 3 data points but 100 pts in grid
 p_grid <- seq( from=0 , to=1 , length.out=100 ) 
 # define prior; this is uniform (3 points, all = 1)
 prior <- ifelse(p_grid <0.5, 0, 1)
@@ -92,8 +92,8 @@ plot(p_grid, posterior, type = "b",
 mtext("100 points in grid")
 
 2) W W W L
-# define grid; only 4 data points
-p_grid <- seq( from=0 , to=1 , length.out=4 ) 
+# define grid; only 4 data points but 100 pts in grid
+p_grid <- seq( from=0 , to=1 , length.out= 100 ) 
 # define prior; this is uniform (3 points, all = 1)
 prior <- ifelse(p_grid <0.5, 0, 1)
 # compute likelihood at each value in grid; 3 W in 3 tosses
@@ -105,11 +105,11 @@ posterior <- unstd.posterior / sum(unstd.posterior)
 
 plot(p_grid, posterior, type = "b",
      xlab="probability of water", ylab= "posterior probability")
-mtext("4 points")
+mtext("100 pts in grid")
 
 3) L W W L W W W 
-# define grid; only 7 data points
-p_grid <- seq( from=0 , to=1 , length.out=7 ) 
+# define grid; only 7 data points but 100 pts in grid
+p_grid <- seq( from=0 , to=1 , length.out=100 ) 
 # define prior; this is uniform (3 points, all = 1)
 prior <- ifelse(p_grid <0.5, 0, 1)
 # compute likelihood at each value in grid; 3 W in 3 tosses
@@ -121,7 +121,7 @@ posterior <- unstd.posterior / sum(unstd.posterior)
 
 plot(p_grid, posterior, type = "b",
      xlab="probability of water", ylab= "posterior probability")
-mtext("7 points")
+mtext("100 points in grid")
 
 
 ## 2M3:  globes: earth and mars.  pw for earth = 07; pw for mars = 0. one toss of the globe = L observation.  what is the posterior probabilty that the globe tossed was the earth? that is, solve for Pr(earth±land) 
