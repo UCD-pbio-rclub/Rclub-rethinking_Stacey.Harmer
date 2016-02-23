@@ -1,6 +1,6 @@
 # Statistical Rethinking Chapter 3 problems
 
-__Name:__
+__Name:Stacey Harmer__
 
 ## 3E1
 
