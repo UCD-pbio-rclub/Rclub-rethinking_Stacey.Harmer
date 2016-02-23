@@ -22,10 +22,10 @@ Name: Stacey Harmer
 
 1) W W W 
 
-# define grid; only 3 data points
-p_grid <- seq( from=0 , to=1 , length.out=3 ) 
+# define grid; only 3 data points, but 100 parameter values
+p_grid <- seq( from=0 , to=1 , length.out=100 ) 
 # define prior; this is uniform (3 points, all = 1)
-prior <- rep( 1 , 3 )
+prior <- rep( 1 , 100 )
 # compute likelihood at each value in grid; 3 W in 3 tosses
 likelihood <- dbinom( 3 , size=3 , prob=p_grid )
 # compute product of likelihood and prior
@@ -35,13 +35,13 @@ posterior <- unstd.posterior / sum(unstd.posterior)
 
 plot(p_grid, posterior, type = "b",
      xlab="probability of water", ylab= "posterior probability")
-mtext("3 points")
+mtext("100 points in grid")
 
 2) W W W L
-# define grid; only 4 data points
-p_grid <- seq( from=0 , to=1 , length.out=4 ) 
+# define grid; only 4 data points but 100 parameter estimates
+p_grid <- seq( from=0 , to=1 , length.out=100 ) 
 # define prior; this is uniform (3 points, all = 1)
-prior <- rep( 1 , 4 )
+prior <- rep( 1 , 100 )
 # compute likelihood at each value in grid; 3 W in 3 tosses
 likelihood <- dbinom( 3 , size=4 , prob=p_grid )
 # compute product of likelihood and prior
@@ -51,7 +51,7 @@ posterior <- unstd.posterior / sum(unstd.posterior)
 
 plot(p_grid, posterior, type = "b",
      xlab="probability of water", ylab= "posterior probability")
-mtext("4 points")
+mtext("100 points in grid")
 
 3) L W W L W W W 
 # define grid; only 7 data points
@@ -77,7 +77,7 @@ prior <- ifelse(p_grid <0.5, 0, 1)
 1) W W W 
 
 # define grid; only 3 data points
-p_grid <- seq( from=0 , to=1 , length.out=3 ) 
+p_grid <- seq( from=0 , to=1 , length.out=100 ) 
 # define prior; this is uniform (3 points, all = 1)
 prior <- ifelse(p_grid <0.5, 0, 1)
 # compute likelihood at each value in grid; 3 W in 3 tosses
@@ -89,7 +89,7 @@ posterior <- unstd.posterior / sum(unstd.posterior)
 
 plot(p_grid, posterior, type = "b",
      xlab="probability of water", ylab= "posterior probability")
-mtext("3 points")
+mtext("100 points in grid")
 
 2) W W W L
 # define grid; only 4 data points
@@ -161,12 +161,12 @@ The third card might be W/W, B/W, or B/B.
 
 SO considering only cards 1 and 2, they could be:  card 1: B/B or W/B; and card 2: W/W or B/W.   
 All possible ways to get the observed order:
- card 1       card 2        card 3
-1) B/B  (x2)      W/W        B/W
-2) B/B  (x2)      B/W        W/W
-3) B/W  (x1)      W/W        B/B
+ card 1       card 2        card 3     ways to see the observed resultfor 1 then 2
+1) B/B        W/W        B/W          - there are 4 ways to get this 
+2) B/B        B/W        W/W          - there are 2 ways to get this
+3) B/W        W/W        B/B          - there are 2 ways to get this
 
-So it seems like there should be a 5/6 chance of the second side of the first card being 'B'  (?)
+So 8 paths total.  6 of the 8 have b/b in position 1.  
 ## ASK Julin about this.
 
 ### 2H1:  2 species of panda bear; equally common.  Species A: twins 10% of time; species B has twins 20% of the time.  Unknown female had twins.  what is probability next birth will be twins?
@@ -180,6 +180,8 @@ posterior = (0.2 * 0.5)/((.1 + .2)/2) = 0.66 probability that the mom was specie
 
 So I guess that likelihood that the next birth will be twins would be:
 .66 * .2 =  13% likelihood  (that result seems wrong to me)
+.33 * .1  =  3% likelihood if mom was species A.
 
+So overall likelihood is 16%. 
 
 
