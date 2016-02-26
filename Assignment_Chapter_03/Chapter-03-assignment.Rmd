@@ -1,3 +1,6 @@
+---
+output: word_document
+---
 # Statistical Rethinking Chapter 3 problems
 
 __Name:Stacey Harmer__
