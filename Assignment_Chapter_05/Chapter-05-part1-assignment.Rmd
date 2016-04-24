@@ -1,16 +1,128 @@
 # Statistical Rethinking Chapter 4 problems
 
-__Name:__
-
+__Stacey:__
 
 # For 04/11/2016
 
+```{r}
+library(rethinking)
+```
+
+
 ## 5E1
+#####  5E1. Which of the linear models below are multiple linear regressions?
+#####  (2) mu.i = b.x * x.i + b.z * z.i
+#####  (4)  mu.i = a + b.x*x.i + b.z * z.i
 
-## 5E2
+#####   (I dont' think 3 qualifies as only one beta here)
 
-## 5M1
+## 5E2.   Write down a multiple regression to evaluate the claim: 
+## Animal diversity is linearly related to latitude, but only after controlling for plant diversity. 
 
-## 5M3
+#####   (  I think it would be:  mu.d = a + b.l * lat + b.p * pl.d
+#####   ( where mu.d is mean animal diversity
+#####   ( a is intercept
+#####   ( b.l is the relationship between latitude and diversity
+#####   ( lat is latitude
+#####   ( b.p is relatinship between plant divserity and animal diversity
+#####   ( pl.d is plant diverstiy
+
+
+## 5M1.  Invent your own example of a spurious correlation. 
+#####  An outcome variable should be correlated with both predictor variables. 
+#####  But when both predictors are entered in the same model, 
+#####  the correlation between the outcome and one of the predictors 
+#####   should mostly vanish (or at least be greatly reduced).
+
+##### well, this is spelled out on p. 135
+```{r}
+n <- 200
+real.x <- runif(n, min = 10, max = 20)
+spur.x <- rnorm(n, real.x)
+my.y <- rnorm(n, real.x)
+my.d <- data.frame(my.y, real.x, spur.x)
+pairs(my.d)
+summary(my.d)
+
+# can I make a linear regression predicting y?
+library(rethinking)
+my.M1.model <- map(
+  alist(
+    my.y ~ dnorm (mu, sigma) ,
+    mu <- a + bS * spur.x + bR * real.x,
+    a ~ dnorm(10, 10) ,
+    bS ~ dnorm(0 , 1) ,
+    bR ~ dnorm(0 , 1) ,
+    sigma ~ dunif(0, 10)
+  ), data = my.d
+)
+precis(my.M1.model)
+plot(precis(my.M1.model))
+#  bS is close to 0, while bR is close to 1.  OK!
+```
+
+## 5M3  Consider how a high divorce rate might cause a higher marriage rate. 
+##  Can you think of a way to evaluate this relationship, using multiple regression?
+
+##### could imagine that recently divorced people would be eager to marry again.
+##### evaulation with multiple regression: As in Fig 4.5?  (p 103)
+##### I think I'd model using map function, model being
+##### mu <- a + b*divorce.rate
+##### then I'd extract samples from the posterior and plot relative to real data
+##### as shown on page 102
+
 
 ## 5M4
+### Find a list of LDS population by State and use those numbers as a predictor variable, predicting divorce
+### rate using marriage rate, median age at marriage, and percent LDS population (possibly standardized).
+### You may want to consider transformations of the raw percent LDS variable.
+
+#### found appropriate table on Wikipedia; saved to my hard drive
+
+#### what does he mean by standardized percentile?  Ah, maybe so that it's fraction mormons in US by state?
+
+```{r}
+setwd("~/R /R_club/R_Club_2016/Ch5_2016-04-22")
+mormons <- read.csv("mormons_by_state.csv")
+head(mormons)
+tail(mormons, n=10)
+summary(mormons)
+sum(mormons$percent.LDS)
+mormons$percent.std <- mormons$percent.LDS / sum(mormons$percent.LDS)  
+
+# standardize LDS predictor
+mormons$percent.LDS.s <- (mormons$percent.LDS - mean(mormons$percent.LDS))/
+  sd(mormons$percent.LDS)
+dim(mormons)
+
+# now simplify and merge info
+mormons.LDS.s <- mormons[, c(1,14)]
+head(mormons.LDS.s)
+
+data("WaffleDivorce")
+divorce <- WaffleDivorce
+head(divorce)
+divorce <- merge(divorce, mormons.LDS.s, by.x = "Location", by.y = "State")
+head(divorce)
+
+divorce$Marriage.s <- (divorce$Marriage - mean(divorce$Marriage))/sd(divorce$Marriage)
+divorce$MedianAgeMarriage.s <- (divorce$MedianAgeMarriage-mean(divorce$MedianAgeMarriage))/sd(divorce$MedianAgeMarriage)
+
+### now predict divorce rate with all parameters
+
+m5M4.problem <- map(
+  alist(
+    Divorce ~ dnorm (mu, sigma) ,
+    mu <- a + bR * Marriage.s + bA * MedianAgeMarriage.s + bM * percent.LDS.s,
+    a ~ dnorm(10, 10) ,
+    bR ~ dnorm(0 , 1) ,
+    bA ~ dnorm(0 , 1) ,
+    bM ~ dnorm(0 , 1) ,  # just like others .. .
+    sigma ~ dunif(0, 10)
+  ), data = divorce
+)
+precis(m5M4.problem)
+
+plot(precis(m5M4.problem))
+# Age and LDS both predict less divorce
+```
