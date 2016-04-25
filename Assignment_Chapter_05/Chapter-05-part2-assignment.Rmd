@@ -44,6 +44,7 @@ m.area <- map(
               ),
               data=foxes )
 precis(m.area)
+plot(precis(m.area))  # b not very useful
 
 area.seq <- seq(0,6, length.out = 100)
 mu.area <- link(m.area, data=data.frame(area=area.seq))
@@ -67,6 +68,7 @@ m.size <- map(
               ),
               data=foxes )
 precis(m.size) # the bigger the group, the lower the weight
+plot(precis(m.size)) # but effect is quite small
 
 groupsize.seq <- seq(0,10, length.out = 100)
 mu.groupsize <- link(m.size, data=data.frame(groupsize=groupsize.seq))
@@ -104,7 +106,9 @@ m.area.size <- map(
               ),
               data=foxes )
 precis(m.area.size) 
+plot(precis(m.area.size))
 # now see that area has positive, groupsize negative effect on weight
+# small but non-zero effects
 
 # plot predictions (counterfactual plots)
 # first, vary groupsize
@@ -173,6 +177,7 @@ m.food.group <- map(
               ),
               data=foxes )
 precis(m.food.group) # the bigger the group, the lower the weight; the more food, the greater the weight
+plot(precis(m.food.group))  # really large SE for food effect
 
 # let's look at the gt beween teh model and hte actual data
 mu.food.group <- link(m.food.group)
@@ -213,8 +218,40 @@ pch=3 , cex=0.6 , col="gray" )
 
 ```
 
-##### (a) Is avgfood or area a better predictor of body
-##### weight? If you had to choose one or the other to include in a model, which would it be? Support your
+##### (a) Is avgfood or area a better predictor of body weight?
+
+```{r}
+# 1.  as above, but replace avgfood with area
+m.area.group <- map( 
+              alist(
+                weight ~ dnorm(mu,sigma),
+                mu <- a + b.g*groupsize + b.a*area ,
+                a ~ dnorm(4,10),  # not sure what reasonable prior is; will try this
+                b.g ~ dnorm(0,10),
+                b.a ~ dnorm(0,10),
+                sigma ~ dunif(0,10)
+              ),
+              data=foxes )
+precis(m.area.group) # the bigger the group, the lower the weight; the more food, the greater the weight
+plot(precis(m.area.group))  # area has smaller effect than avgfood, but SE much smaller.  This is likely better
+
+
+```
+
+#####  If you had to choose one or the other to include in a model, which would it be? Support your
 ##### assessment with any tables or plots you choose. (b) When both avgfood or area are in the same
 ##### model, their effects are reduced (closer to zero) and their standard errors are larger than when they
 ##### are included in separate models. Can you explain this result?
+***
+no time to run it, but likely this is because larger area is highly correlated with avgfood
+
+```{r}
+head(foxes)
+pairs(foxes)
+pairs( ~ avgfood + area  ,
+   data=foxes , col=rangi2 )
+# these look highly correlated
+cor(foxes$avgfood, foxes$area)
+# 0.8831038
+```
+yes, these values are highly positively corelated.

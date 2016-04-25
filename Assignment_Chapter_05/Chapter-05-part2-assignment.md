@@ -102,6 +102,12 @@ precis(m.area)
 ```
 
 ```r
+plot(precis(m.area))  # b not very useful
+```
+
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-1-1.png)
+
+```r
 area.seq <- seq(0,6, length.out = 100)
 mu.area <- link(m.area, data=data.frame(area=area.seq))
 ```
@@ -135,7 +141,7 @@ abline(m.area)
 shade(mu.area.HPDI, area.seq) # not much data within 95% interval
 ```
 
-![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-1-1.png)
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-1-2.png)
 
 ```r
 # 2.  body weight as linear function of groupsize
@@ -158,6 +164,12 @@ precis(m.size) # the bigger the group, the lower the weight
 ## b     -0.12   0.07 -0.24 -0.01
 ## sigma  1.16   0.08  1.04  1.29
 ```
+
+```r
+plot(precis(m.size)) # but effect is quite small
+```
+
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-1-3.png)
 
 ```r
 groupsize.seq <- seq(0,10, length.out = 100)
@@ -193,7 +205,7 @@ abline(m.size)
 shade(mu.groupsize.HPDI, groupsize.seq) # not much data within 95% interval
 ```
 
-![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-1-2.png)
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-1-4.png)
 
 ## 5H2
 ##### Now fit a multiple linear regression with weight as the outcome and both area and groupsize
@@ -250,7 +262,14 @@ precis(m.area.size)
 ```
 
 ```r
+plot(precis(m.area.size))
+```
+
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-2-1.png)
+
+```r
 # now see that area has positive, groupsize negative effect on weight
+# small but non-zero effects
 
 # plot predictions (counterfactual plots)
 # first, vary groupsize
@@ -308,7 +327,7 @@ shade(mu.weight.pred.groupsize.PI, groupsize.seq)
 shade(weight.PI, groupsize.seq)
 ```
 
-![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-2-1.png)
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-2-2.png)
 
 ```r
 # Now, vary area (leaving groupsize unaltered)
@@ -366,7 +385,7 @@ shade(mu.weight.pred.area.PI, area.seq)
 shade(weight.PI.2, area.seq)
 ```
 
-![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-2-2.png)
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-2-3.png)
   
   ## 5H3
 ##### Finally, consider the avgfood variable. Fit two more multiple regressions: (1) body weight
@@ -393,11 +412,17 @@ precis(m.food.group) # the bigger the group, the lower the weight; the more food
 
 ```
 ##        Mean StdDev  5.5% 94.5%
-## a      4.14   0.43  3.45  4.82
+## a      4.14   0.43  3.45  4.83
 ## b.g   -0.56   0.16 -0.81 -0.31
-## b.f    3.77   1.20  1.85  5.70
+## b.f    3.77   1.20  1.84  5.69
 ## sigma  1.12   0.07  1.00  1.23
 ```
+
+```r
+plot(precis(m.food.group))  # really large SE for food effect
+```
+
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-3-1.png)
 
 ```r
 # let's look at the gt beween teh model and hte actual data
@@ -451,7 +476,7 @@ for (i in 1:nrow(foxes) )
             col=rangi2)
 ```
 
-![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-3-1.png)
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-3-2.png)
 
 ```r
 # I messed up these lines. . .
@@ -472,14 +497,89 @@ pch=3 , cex=0.6 , col="gray" )
 }
 ```
 
-![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-3-2.png)
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-3-3.png)
 
 ```r
 # better
 ```
 
-##### (a) Is avgfood or area a better predictor of body
-##### weight? If you had to choose one or the other to include in a model, which would it be? Support your
+##### (a) Is avgfood or area a better predictor of body weight?
+
+
+```r
+# 1.  as above, but replace avgfood with area
+m.area.group <- map( 
+              alist(
+                weight ~ dnorm(mu,sigma),
+                mu <- a + b.g*groupsize + b.a*area ,
+                a ~ dnorm(4,10),  # not sure what reasonable prior is; will try this
+                b.g ~ dnorm(0,10),
+                b.a ~ dnorm(0,10),
+                sigma ~ dunif(0,10)
+              ),
+              data=foxes )
+precis(m.area.group) # the bigger the group, the lower the weight; the more food, the greater the weight
+```
+
+```
+##        Mean StdDev  5.5% 94.5%
+## a      4.45   0.37  3.86  5.04
+## b.g   -0.43   0.12 -0.63 -0.24
+## b.a    0.62   0.20  0.30  0.94
+## sigma  1.12   0.07  1.00  1.24
+```
+
+```r
+plot(precis(m.area.group))  # area has smaller effect than avgfood, but SE much smaller.  This is likely better
+```
+
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-4-1.png)
+
+#####  If you had to choose one or the other to include in a model, which would it be? Support your
 ##### assessment with any tables or plots you choose. (b) When both avgfood or area are in the same
 ##### model, their effects are reduced (closer to zero) and their standard errors are larger than when they
 ##### are included in separate models. Can you explain this result?
+***
+no time to run it, but likely this is because larger area is highly correlated with avgfood
+
+
+```r
+head(foxes)
+```
+
+```
+##   group avgfood groupsize area weight
+## 1     1    0.37         2 1.09   5.02
+## 2     1    0.37         2 1.09   2.84
+## 3     2    0.53         2 2.05   5.33
+## 4     2    0.53         2 2.05   6.07
+## 5     3    0.49         2 2.12   5.85
+## 6     3    0.49         2 2.12   3.25
+```
+
+```r
+pairs(foxes)
+```
+
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-5-1.png)
+
+```r
+pairs( ~ avgfood + area  ,
+   data=foxes , col=rangi2 )
+```
+
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-5-2.png)
+
+```r
+# these look highly correlated
+cor(foxes$avgfood, foxes$area)
+```
+
+```
+## [1] 0.8831038
+```
+
+```r
+# 0.8831038
+```
+yes, these values are highly positively corelated.
