@@ -1,9 +1,4 @@
----
-title: "Chapter-05-part2-assignment"
-output: 
-  html_document: 
-    keep_md: yes
----
+# Chapter-05-part2-assignment
 # Statistical Rethinking Chapter 4 problems
 
 __Stacey__
@@ -26,12 +21,65 @@ cycling speed = outcome variable; predictor.1 = wind resistance and predictor.2 
 ##### regressions, displaying the MAP regression line and the 95% interval of the mean. Is either variable
 ##### important for predicting fox body weight?
 
-```{r}
+
+```r
 library(rethinking)
+```
+
+```
+## Loading required package: rstan
+```
+
+```
+## Loading required package: ggplot2
+```
+
+```
+## Warning: package 'ggplot2' was built under R version 3.2.4
+```
+
+```
+## rstan (Version 2.9.0-3, packaged: 2016-02-11 15:54:41 UTC, GitRev: 05c3d0058b6a)
+```
+
+```
+## For execution on a local, multicore CPU with excess RAM we recommend calling
+## rstan_options(auto_write = TRUE)
+## options(mc.cores = parallel::detectCores())
+```
+
+```
+## Loading required package: parallel
+```
+
+```
+## rethinking (Version 1.58)
+```
+
+```r
 data("foxes")
 foxes <- foxes
 summary(foxes)
+```
 
+```
+##      group          avgfood         groupsize          area      
+##  Min.   : 1.00   Min.   :0.3700   Min.   :2.000   Min.   :1.090  
+##  1st Qu.:11.75   1st Qu.:0.6600   1st Qu.:3.000   1st Qu.:2.590  
+##  Median :18.00   Median :0.7350   Median :4.000   Median :3.130  
+##  Mean   :17.21   Mean   :0.7517   Mean   :4.345   Mean   :3.169  
+##  3rd Qu.:24.00   3rd Qu.:0.8000   3rd Qu.:5.000   3rd Qu.:3.772  
+##  Max.   :30.00   Max.   :1.2100   Max.   :8.000   Max.   :5.070  
+##      weight     
+##  Min.   :1.920  
+##  1st Qu.:3.720  
+##  Median :4.420  
+##  Mean   :4.530  
+##  3rd Qu.:5.375  
+##  Max.   :7.550
+```
+
+```r
 # 1.  body weight as linear function of territory size (area)
 
 m.area <- map( 
@@ -44,17 +92,52 @@ m.area <- map(
               ),
               data=foxes )
 precis(m.area)
+```
 
+```
+##       Mean StdDev  5.5% 94.5%
+## a     4.45   0.39  3.82  5.07
+## b     0.03   0.12 -0.16  0.21
+## sigma 1.18   0.08  1.06  1.30
+```
+
+```r
 area.seq <- seq(0,6, length.out = 100)
 mu.area <- link(m.area, data=data.frame(area=area.seq))
+```
 
+```
+## [ 100 / 1000 ]
+[ 200 / 1000 ]
+[ 300 / 1000 ]
+[ 400 / 1000 ]
+[ 500 / 1000 ]
+[ 600 / 1000 ]
+[ 700 / 1000 ]
+[ 800 / 1000 ]
+[ 900 / 1000 ]
+[ 1000 / 1000 ]
+```
+
+```r
 mu.area.HPDI <- apply(mu.area, 2, HPDI, prob=0.95)
 
 plot(weight ~ area, data=foxes, col= rangi2)
 abline(m.area)
+```
 
+```
+## Warning in abline(m.area): only using the first two of 3 regression
+## coefficients
+```
+
+```r
 shade(mu.area.HPDI, area.seq) # not much data within 95% interval
+```
 
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-1-1.png)
+
+```r
 # 2.  body weight as linear function of groupsize
 
 m.size <- map( 
@@ -67,30 +150,82 @@ m.size <- map(
               ),
               data=foxes )
 precis(m.size) # the bigger the group, the lower the weight
+```
 
+```
+##        Mean StdDev  5.5% 94.5%
+## a      5.07   0.32  4.55  5.59
+## b     -0.12   0.07 -0.24 -0.01
+## sigma  1.16   0.08  1.04  1.29
+```
+
+```r
 groupsize.seq <- seq(0,10, length.out = 100)
 mu.groupsize <- link(m.size, data=data.frame(groupsize=groupsize.seq))
+```
 
+```
+## [ 100 / 1000 ]
+[ 200 / 1000 ]
+[ 300 / 1000 ]
+[ 400 / 1000 ]
+[ 500 / 1000 ]
+[ 600 / 1000 ]
+[ 700 / 1000 ]
+[ 800 / 1000 ]
+[ 900 / 1000 ]
+[ 1000 / 1000 ]
+```
+
+```r
 mu.groupsize.HPDI <- apply(mu.groupsize, 2, HPDI, prob=0.95)
 
 plot(weight ~ groupsize, data=foxes, col= rangi2)
 abline(m.size)
+```
 
+```
+## Warning in abline(m.size): only using the first two of 3 regression
+## coefficients
+```
+
+```r
 shade(mu.groupsize.HPDI, groupsize.seq) # not much data within 95% interval
 ```
+
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-1-2.png)
 
 ## 5H2
 ##### Now fit a multiple linear regression with weight as the outcome and both area and groupsize
 ##### as predictor variables. Plot the predictions of the model for each predictor, holding the other predictor
 ##### constant at its mean. What does this model say about the importance of each variable? Why do you
 ##### get different results than you got in the exercise just above?
-```{r}
 
+```r
 library(rethinking)
 data("foxes")
 foxes <- foxes
 summary(foxes)
+```
 
+```
+##      group          avgfood         groupsize          area      
+##  Min.   : 1.00   Min.   :0.3700   Min.   :2.000   Min.   :1.090  
+##  1st Qu.:11.75   1st Qu.:0.6600   1st Qu.:3.000   1st Qu.:2.590  
+##  Median :18.00   Median :0.7350   Median :4.000   Median :3.130  
+##  Mean   :17.21   Mean   :0.7517   Mean   :4.345   Mean   :3.169  
+##  3rd Qu.:24.00   3rd Qu.:0.8000   3rd Qu.:5.000   3rd Qu.:3.772  
+##  Max.   :30.00   Max.   :1.2100   Max.   :8.000   Max.   :5.070  
+##      weight     
+##  Min.   :1.920  
+##  1st Qu.:3.720  
+##  Median :4.420  
+##  Mean   :4.530  
+##  3rd Qu.:5.375  
+##  Max.   :7.550
+```
+
+```r
 #   body weight as linear function of area and groupsize
 
 m.area.size <- map( 
@@ -104,6 +239,17 @@ m.area.size <- map(
               ),
               data=foxes )
 precis(m.area.size) 
+```
+
+```
+##        Mean StdDev  5.5% 94.5%
+## a      4.45   0.37  3.86  5.04
+## b.a    0.62   0.20  0.30  0.94
+## b.g   -0.43   0.12 -0.63 -0.24
+## sigma  1.12   0.07  1.00  1.24
+```
+
+```r
 # now see that area has positive, groupsize negative effect on weight
 
 # plot predictions (counterfactual plots)
@@ -115,11 +261,43 @@ pred.data.groupsize <- data.frame(groupsize=groupsize.seq, area = area.mean)
 # use these data to get mean predicted weights.
 
 mu.weight.pred.groupsize <- link(m.area.size, data=pred.data.groupsize)
+```
+
+```
+## [ 100 / 1000 ]
+[ 200 / 1000 ]
+[ 300 / 1000 ]
+[ 400 / 1000 ]
+[ 500 / 1000 ]
+[ 600 / 1000 ]
+[ 700 / 1000 ]
+[ 800 / 1000 ]
+[ 900 / 1000 ]
+[ 1000 / 1000 ]
+```
+
+```r
 mu.weight.pred.groupsize.mean <- apply(mu.weight.pred.groupsize, 2, mean)
 mu.weight.pred.groupsize.PI <- apply(mu.weight.pred.groupsize, 2, PI, prob=0.95)
 
 # simulate weight outcomes of model
 weight.sim <- sim(m.area.size, data=pred.data.groupsize, n=1e4)
+```
+
+```
+## [ 1000 / 10000 ]
+[ 2000 / 10000 ]
+[ 3000 / 10000 ]
+[ 4000 / 10000 ]
+[ 5000 / 10000 ]
+[ 6000 / 10000 ]
+[ 7000 / 10000 ]
+[ 8000 / 10000 ]
+[ 9000 / 10000 ]
+[ 10000 / 10000 ]
+```
+
+```r
 weight.PI <- apply(weight.sim, 2 ,PI)
 
 # display predictions, hiding raw data
@@ -128,8 +306,11 @@ mtext("area = 0")
 lines(groupsize.seq, mu.weight.pred.groupsize.mean)
 shade(mu.weight.pred.groupsize.PI, groupsize.seq)
 shade(weight.PI, groupsize.seq)
+```
 
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-2-1.png)
 
+```r
 # Now, vary area (leaving groupsize unaltered)
 groupsize.mean <- mean(foxes$groupsize)
 area.seq <- seq(0,10, length.out = 100)
@@ -138,11 +319,43 @@ pred.data.area <- data.frame(groupsize=groupsize.mean, area = area.seq)
 # use these data to get mean predicted weights.
 
 mu.weight.pred.area <- link(m.area.size, data=pred.data.area)
+```
+
+```
+## [ 100 / 1000 ]
+[ 200 / 1000 ]
+[ 300 / 1000 ]
+[ 400 / 1000 ]
+[ 500 / 1000 ]
+[ 600 / 1000 ]
+[ 700 / 1000 ]
+[ 800 / 1000 ]
+[ 900 / 1000 ]
+[ 1000 / 1000 ]
+```
+
+```r
 mu.weight.pred.area.mean <- apply(mu.weight.pred.area, 2, mean)
 mu.weight.pred.area.PI <- apply(mu.weight.pred.area, 2, PI, prob=0.95)
 
 # simulate weight outcomes of model
 weight.sim.2 <- sim(m.area.size, data=pred.data.area, n=1e4)
+```
+
+```
+## [ 1000 / 10000 ]
+[ 2000 / 10000 ]
+[ 3000 / 10000 ]
+[ 4000 / 10000 ]
+[ 5000 / 10000 ]
+[ 6000 / 10000 ]
+[ 7000 / 10000 ]
+[ 8000 / 10000 ]
+[ 9000 / 10000 ]
+[ 10000 / 10000 ]
+```
+
+```r
 weight.PI.2 <- apply(weight.sim.2, 2 ,PI)
 
 # display predictions, hiding raw data
@@ -152,6 +365,8 @@ lines(area.seq, mu.weight.pred.area.mean)
 shade(mu.weight.pred.area.PI, area.seq)
 shade(weight.PI.2, area.seq)
 ```
+
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-2-2.png)
   
   ## 5H3
 ##### Finally, consider the avgfood variable. Fit two more multiple regressions: (1) body weight
@@ -160,7 +375,8 @@ shade(weight.PI.2, area.seq)
 ##### previous models you’ve fit, in the first two exercises. 
 
 
-```{r}
+
+```r
 # 1.  weight as function of avgfood and groupsize
 m.food.group <- map( 
               alist(
@@ -173,15 +389,57 @@ m.food.group <- map(
               ),
               data=foxes )
 precis(m.food.group) # the bigger the group, the lower the weight; the more food, the greater the weight
+```
 
+```
+##        Mean StdDev  5.5% 94.5%
+## a      4.14   0.43  3.45  4.82
+## b.g   -0.56   0.16 -0.81 -0.31
+## b.f    3.77   1.20  1.85  5.70
+## sigma  1.12   0.07  1.00  1.23
+```
+
+```r
 # let's look at the gt beween teh model and hte actual data
 mu.food.group <- link(m.food.group)
+```
+
+```
+## [ 100 / 1000 ]
+[ 200 / 1000 ]
+[ 300 / 1000 ]
+[ 400 / 1000 ]
+[ 500 / 1000 ]
+[ 600 / 1000 ]
+[ 700 / 1000 ]
+[ 800 / 1000 ]
+[ 900 / 1000 ]
+[ 1000 / 1000 ]
+```
+
+```r
 # summarize samlpes across the cases
 mu.food.group.mean <- apply(mu.food.group, 2, mean)
 mu.food.group.PI <- apply(mu.food.group, 2, PI, prob=0.95)
 
 # simulate observations, starting from real data
 weight.sim.1 <- sim(m.food.group, n = 1e4)
+```
+
+```
+## [ 1000 / 10000 ]
+[ 2000 / 10000 ]
+[ 3000 / 10000 ]
+[ 4000 / 10000 ]
+[ 5000 / 10000 ]
+[ 6000 / 10000 ]
+[ 7000 / 10000 ]
+[ 8000 / 10000 ]
+[ 9000 / 10000 ]
+[ 10000 / 10000 ]
+```
+
+```r
 weight.PI.1 <- apply(weight.sim.1, 2, PI, prob = 0.95)
 
 # now plot predictions against observed
@@ -191,7 +449,11 @@ abline(a =0, b=1, lty=2)
 for (i in 1:nrow(foxes) )
      lines( rep(foxes$weight[i],2) , c(mu.food.group.PI[1, i], mu.food.group.PI[2, i]),
             col=rangi2)
+```
 
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-3-1.png)
+
+```r
 # I messed up these lines. . .
 
 # try computing residuals instead
@@ -208,9 +470,12 @@ lines( foxes$weight[j]-c(mu.food.group.PI[1,j],mu.food.group.PI[2,j]) , rep(i,2)
 points( foxes$weight[j]-c(weight.PI.1[1,j],weight.PI.1[2,j]) , rep(i,2),
 pch=3 , cex=0.6 , col="gray" )
 }
+```
 
+![](Chapter-05-part2-assignment_files/figure-html/unnamed-chunk-3-2.png)
+
+```r
 # better
-
 ```
 
 ##### (a) Is avgfood or area a better predictor of body
