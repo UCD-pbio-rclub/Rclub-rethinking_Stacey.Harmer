@@ -1,0 +1,249 @@
+---
+title: "Chapter 8 problems"
+author: "Stacey Harmer"
+date: "June 17, 2016"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+####8E1.  Required of simple Metropolis algorithm:  
+3)  The proposal distribution must be symmetric.  (that is, probability of going A to B same as going B to A)
+
+####8E2.  Gibbs sampling efficiency is greater than Metropolitan because it is more efficient at exploring the 
+posterior disctribution; the parameter value at one moment helps adjust what the proopsed parameter values will
+be.  (conjugate priors).  But maybe you don't want to use conjugate priors.  And Gibbs sampling becomes very 
+inefficient when you have hundreds or thousands of parameters.
+
+####8E3.  HMC can't handle discrete parameters.  this is because it 'glides' through possible parameter values 
+and this isn't possible with discrete parameters. 
+
+####8E4.  
+The effective number of samples, n_eff, are the effectively independent samples. Markov chains tend to be   
+autocorrelated, meaning subsequent samples are not truly independent.
+
+####8E5.  
+Rhat should approach 1.00.  This is a 'convergence diagnostic'.  If greater than 1.00, it indicates the chain
+has not yet converged.
+
+####8E6.  
+I'm not going to try to sketch it out using R.  But good trace plots rapidly go up and down (good mixing) and 
+has stationarity (path stays within posterior distribution).  A malfunctioning chain would show spiking and 
+wouldn't converge to final values.
+
+####8m1.  
+RE-estimate ruggedness model, using uniform prior and exponential prior
+
+```{r}
+## original model
+library(rethinking)
+data(rugged)
+d <- rugged
+d$log_gdp <- log(d$rgdppc_2000)
+dd <- d[ complete.cases(d$rgdppc_2000) , ]
+dd.trim <- dd[ , c("log_gdp","rugged","cont_africa") ] 
+
+m8.1stan <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dcauchy(0,2)
+                      ) ,
+                      data=dd.trim )
+precis(m8.1stan)
+
+# now use uniform prior for sigma
+m8.1stan.sig.uni <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dunif(0,10)
+                      ) ,
+                      data=dd.trim )
+precis(m8.1stan.sig.uni) # this is pretty much same as above.  maybe because lots of data in dataset?
+dim(dd.trim)
+# now use exponential prior for sigma
+m8.1stan.sig.exp <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dexp(1)
+                      ) ,
+                      data=dd.trim )
+precis(m8.1stan.sig.exp) # also about the same; 
+compare(m8.1stan, m8.1stan.sig.uni)
+compare(m8.1stan, m8.1stan.sig.exp) 
+compare(m8.1stan.sig.uni, m8.1stan.sig.exp)  
+# yes all very similar
+```
+
+####8m2.  
+Reduce the scale of the Cauchy and exponential priors from terrain model to see how this influences posterior.
+
+```{r}
+## reduce scale Cauchy
+m8.1stan.cauchy.scale <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dcauchy(0,0.5)
+                      ) ,
+                      data=dd.trim )
+precis(m8.1stan.cauchy.scale)
+# looks about the same
+plot(m8.1stan.cauchy.scale)
+
+# try with more reduction in scale
+m8.1stan.cauchy.scale.less <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dcauchy(0,0.05)
+                      ) ,
+                      data=dd.trim )
+precis(m8.1stan.cauchy.scale.less)
+precis(m8.1stan)
+# not much difference
+plot(m8.1stan.cauchy.scale.less)
+
+# now do same with dexp
+
+m8.1stan.sig.exp.scale <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dexp(0.1)
+                      ) ,
+                      data=dd.trim )
+precis(m8.1stan.sig.exp.scale) # note Rhat greater than 1 for bAR
+plot(m8.1stan.sig.exp.scale) # but looks OK
+precis(m8.1stan.sig.exp)
+compare(m8.1stan.sig.exp, m8.1stan.sig.exp.scale) # not so diff
+
+
+m8.1stan.sig.exp.scale.less <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dexp(0.01)
+                      ) ,
+                      data=dd.trim )
+precis(m8.1stan.sig.exp.scale.less) #now Rhat greater than 1 for most
+plot(m8.1stan.sig.exp.scale.less) # still looks ok
+
+# reduce even more
+m8.1stan.sig.exp.scale.lesser <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dexp(0.001)
+                      ) ,
+                      data=dd.trim )
+precis(m8.1stan.sig.exp.scale.lesser) #now Rhat greater than 1 for most
+plot(m8.1stan.sig.exp.scale.lesser) # 
+compare(m8.1stan.sig.exp.scale.lesser, m8.1stan.sig.exp) # pretty similar
+
+# I guess in this case the choice of prior doesn't really matter that much
+```
+
+
+####8M3  
+Rerun a model with different numbers of warmup iterations
+
+```{r}
+
+test.1000 <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dcauchy(0,2)
+                      ) ,
+                      data=dd.trim, chains=2 , iter=2000 , warmup=1000  )
+precis(test.1000) # n_eff about 700
+plot(test.1000) # looks good
+
+test.500 <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dcauchy(0,2)
+                      ) ,
+                      data=dd.trim, chains=2 , iter=2000 , warmup=500  )
+precis(test.500) # n_eff good; about 900
+plot(test.500)
+
+
+test.50 <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dcauchy(0,2)
+                      ) ,
+                      data=dd.trim, chains=2 , iter=2000 , warmup=50  )
+precis(test.50) # about 600 to 1300 neff, still seems OK
+plot(test.50)
+
+
+test.25 <- map2stan( 
+                      alist(
+                        log_gdp ~ dnorm( mu , sigma ) ,
+                        mu <- a + bR*rugged + bA*cont_africa + bAR*rugged*cont_africa ,
+                        a ~ dnorm(0,100),
+                        bR ~ dnorm(0,10),
+                        bA ~ dnorm(0,10),
+                        bAR ~ dnorm(0,10),
+                        sigma ~ dcauchy(0,2)
+                      ) ,
+                      data=dd.trim, chains=2 , iter=2000 , warmup=25  )
+precis(test.25) # Rhat greater tahn 1 for 3 parameters; neff pretty low
+plot(test.25)
+compare(test.25, test.500) # big pWAIC differences
+
+compare(test.50, test.500) # no pWAIC differences
+
+## SO looks like 50 warmup iterations are enough, but 25 are not
+```
