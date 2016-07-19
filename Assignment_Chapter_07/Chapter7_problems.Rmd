@@ -105,6 +105,7 @@ m7H1 <- map(
     sigma ~ dunif( 0 , 100 )
   ) ,
   data=d ,
+   method="Nelder-Mead" ,
   start=list(a=mean(d$blooms),bW=0,bS=0,bWS=0,sigma=sd(d$blooms))) 
 coeftab(m7H1)
 
@@ -113,13 +114,14 @@ m7H1.j <- map(
   alist(
     blooms ~ dnorm( mu, sigma) ,
     mu  <- a[bed_id] + bW*water.c + bS*shade.c + bWS*water.c*shade.c ,
-    a[bed_id] ~ dnorm( mean(d$bloom), 50 ) ,
+    a[bed_id] ~ dnorm( mean(d$bloom), 100 ) ,
     bW ~ dnorm( 0 , 100 ) ,
     bS ~ dnorm( 0 , 100 ) ,
     bWS ~ dnorm( 0 , 100 ) ,
     sigma ~ dunif( 0 , 100 )
   ) ,
   data=d ,
+    method="Nelder-Mead" ,
   start=list(bW=0,bS=0,bWS=0,sigma=sd(d$blooms))) 
 coeftab(m7H1.j) #yes, now I see different averages per bed
 
@@ -150,6 +152,7 @@ m7H1.j <- map(
     sigma ~ dunif( 0 , 100 )
   ) ,
   data=d ,
+  method="Nelder-Mead" ,
   start=list(bW=0,bS=0,bWS=0,sigma=sd(d$blooms))) 
 precis(m7H1.j)
 
@@ -342,14 +345,32 @@ net <- net[ complete.cases(net$log_lpc) , ]
 m7H4.1 <- map(
   alist(
     log_lpc ~ dnorm(mu, sigma),
-    mu <- a + log(area) + bG*mean.growing.season , 
-    a ~ dnorm(-5, 5) , # since 5 is near mean log_lpc 
+    mu <- a + bA*log(area) + bG*mean.growing.season , 
+    a ~ dnorm(-5, 50) , # since 5 is near mean log_lpc 
     bG ~ dnorm(0 , 1) ,  # weakly regularizing
+    bA ~ dnorm(0, 1) ,
     sigma ~ dunif(0, 10)
   ) , 
-  data = net
-)
+  data = net)
 
 precis(m7H4.1) # bG positive, meaning that longer season gives more positive mu
+
+# part B.  check if language diversity is neg associated with SD of growing season length
+
+m7H4.2 <- map(
+  alist(
+    log_lpc ~ dnorm(mu, sigma),
+    mu <- a + bA*log(area) + bS*sd.growing.season , 
+    a ~ dnorm(-5, 50) , # since 5 is near mean log_lpc 
+    bS ~ dnorm(0 , 5) ,  # weakly regularizing
+    bA ~ dnorm(0, 5) ,
+    sigma ~ dunif(0, 10)
+  ) , 
+  data = net)
+
+precis(m7H4.2)
+
+
+
 ```
 

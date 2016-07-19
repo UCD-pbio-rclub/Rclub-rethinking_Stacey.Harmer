@@ -1,5 +1,6 @@
 ---
 output:
+  pdf_document: default
   html_document:
     keep_md: yes
 ---
@@ -8,12 +9,17 @@ output:
 __Name:Stacey Harmer__
 
 ```{r}
+library(rethinking)
+```
+
+```{r}
 p_grid <- seq( from=0 , to=1 , length.out=1000 ) 
 prior <- rep( 1 , 1000 )
 likelihood <- dbinom( 6 , size=9 , prob=p_grid )
 simplehist(likelihood)
 posterior <- likelihood * prior
 posterior <- posterior / sum(posterior)
+dens(posterior)
 simplehist(posterior)
 set.seed(100)
 samples <- sample( p_grid , prob=posterior , size=1e4 , replace=TRUE )
@@ -123,10 +129,11 @@ samples <- sample(p_grid, size = 1e4, replace =T, prob = posterior)
 # now generate simulated predictions of observations for 15 tosses
 w <- rbinom(1e4, size=15, prob = samples)
 simplehist(w)
+head(w)
 ## 8 is the peak here, but how to determine probability?
 sum(w==8)/1e4
 # 0.1472
-# is that the right way to do it?
+# is that the right way to do it?  I think so, after checking Julin's answers.
 ```
 
 ## 3M4
@@ -136,8 +143,8 @@ sum(w==8)/1e4
 x <- rbinom(1e4, size=9, prob = samples)
 simplehist(x)
 ## 5 is the peak here, but how to determine probability?
-sum(x==5)/1e4
-# 0.2072
+sum(x==6)/1e4
+# 0.1817
 
 ```
 
@@ -165,12 +172,12 @@ HPDI(samples.2, prob = 0.9)
 #     |0.9      0.9| 
 #  0.5050505 0.7171717 
 
-# part 3 - construct posterior predictive check
+# part 3 - construct posterior predictive check; 8 waters in 15 tosses
 w.2 <- rbinom(1e4, size=15, prob = samples.2)
 simplehist(w.2)
 ## 9 is the peak here; determine prob of 9
-sum(w==9)/1e4
-# 0.1409
+sum(w==8)/1e4
+# 0.1511
 # pretty similar to first round
 
 # part 4 - make new posterior distribution; now calculate probability of 6 water in 9 tosses
@@ -179,7 +186,7 @@ x.2 <- rbinom(1e4, size=9, prob = samples.2)
 simplehist(x.2)
 ## 6 is the peak here, but how to determine probability?
 sum(x.2==6)/1e4
-# 0.2387
+# 0.2281
 # now more probable 
 ```
 
@@ -197,28 +204,33 @@ birth2 <- c(0,1,0,1,0,1,1,1,0,0,1,1,1,1,1,0,0,1,1,1,0,0,1,1,1,0,
 #or, could ahve done this:
 library(rethinking)
 data(homeworkch3)
+sum(birth1) + sum(birth2)
 
 ```
 ## 3H1
 ####  Using grid approximation, compute the posterior distribution for hte probability of a birth being a boy, assuming uniform prior.
 ```{r}
 # I assume this means any birth being a boy; there are 111 boys out of 200 births
-p_grid_birth <- seq(from = 0, to = 1, length.out = 1000)
-prior <- rep(1, 1000)
+p_grid_birth <- seq(from = 0, to = 1, length.out = 10000)
+prior <- rep(1, 10000)
 likelihood.birth <- dbinom(111, size = 200, prob = p_grid_birth)
+summary(likelihood.birth)
 simplehist(likelihood.birth)
 posterior.birth <- likelihood.birth*prior
 posterior.birth <- posterior.birth/sum(posterior.birth)
-
+summary(posterior.birth)
+class(posterior.birth)  # "numeric"
 # what parameter value maxmizes the posterior probability?
-
-p_grid[which.max(posterior.birth)]
-#  0.5545546
+library(rethinking)
+p_grid_birth[which.max(posterior.birth)]
+#  0.5549555
 
 # does this make sense?  generate some samples and graph out.
-samples.birth <- sample( p_grid , prob=posterior.birth , size=1e4 , replace=TRUE )
+samples.birth <- sample( p_grid_birth , prob=posterior.birth , size=1e4 , replace=TRUE )
 dens(samples.birth)
 max(samples.birth)
+HPDI(samples.birth)
+#  .496 to .608
 # yes, makes sense
 
 ```
@@ -227,7 +239,7 @@ max(samples.birth)
 ####  Draw 10,000 random parameter values from the posterior distribution.  then estimate the 50%, 89%, and 97% highest posterior density intervals
 ```{r}
 #  generate some samples from the posterior distribution
-samples.birth <- sample( p_grid , prob=posterior.birth , size=1e4 , replace=TRUE )
+samples.birth <- sample( p_grid_birth , prob=posterior.birth , size=1e4 , replace=TRUE )
 
 # HPDI calculations
 HPDI(samples.birth, prob = .5)
@@ -240,6 +252,8 @@ HPDI(samples.birth, prob = .89)
 HPDI(samples.birth, prob = .97)
 #     |0.97     0.97| 
 # 0.4824825 0.6326326 
+## OR:
+HPDI(samples.birth, prob = c(0.5, 0.89, 0.97))
 
 ## looks good
 ```
@@ -255,14 +269,16 @@ dens(sim.births)
 
 HPDI(sim.births, prob = .90)
 # |0.9 0.9| 
-#  93  125 
+#  95  127
 # maybe better:
 chainmode(sim.births, adj=0.01)
-# 109.0131 
-mean(sim.births) # 110.79
+# 109.004
+mean(sim.births) # 110.82
 median(sim.births) #111
 # so yes, this model fits the data very well.  
-
+# or
+dens(sim.births, show.HPDI = .95)
+abline(v=111)
 ```
 
 ## 3H4
@@ -278,11 +294,26 @@ dens(sim.births)
 # 
 mean(sim.births) # 55.4
 median(sim.births) #55
-## this doesn't look like a good fit to these data
 
+dens(sim.births, show.HPDI = .95, adj = 1)
+abline(v=51)
+## this doesn't look like a good fit to these data!!
+
+## let's look at birth2 in the same way
+sum(birth2) #60 boys
+
+sim.births2 <- rbinom( 1e4 , size=100, prob=samples.birth)
+dens(sim.births2)
+# 
+mean(sim.births2) # 55.4
+median(sim.births2) #55
+
+dens(sim.births2, show.HPDI = .95)
+abline(v=60)
+# also a poor fit
 ```
 ## 3H5
-#### model assumes 1st and 2nd births independent.  is this true?
+#### model assumes 1st and 2nd births independent.  is this true? Focus on 2nd births when the 1st birth is a girl.  Compare 10,000 simulated counts of boys to only those second births that followed girls.  First, count number of girls that were first births, then simulate that 10,000 times.  
 
 ```{r}
 # compare 1e4 simulated counts boys to only those second births that followed girls.  
@@ -290,16 +321,23 @@ median(sim.births) #55
 # count the number of first borns that were girls.  This is 49 
 # Simulate 49 births, 10k times.
 
+## I need to link the births
+birth.data <- cbind(birth1, birth2)
+## 49 first births were girls
+girl.1st <- subset(birth.data, birth1==0)
+# of these, how many second births were boys?
+sum(girl.1st[,2])  #39 of the 49 2nd births were boys.  much more than half
+
 #  
-likelihood.birth.girl.1 <- dbinom(49, size = 100, prob = p_grid_birth)
-simplehist(likelihood.birth.girl.1)
-posterior.birth.girl.1 <- likelihood.birth.girl.1*prior
-posterior.birth.girl.1 <- posterior.birth.girl.1/sum(posterior.birth.girl.1)
+sim.births.girls1st <- rbinom( 1e4 , size=49, prob=samples.birth)
+dens(sim.births.girls1st)
+# 
+mean(sim.births.girls1st) # 27
+median(sim.births.girls1st) #27
 
-samples.birth.girls.1 <- sample( p_grid , prob=posterior.birth.girl.1 , size=1e4 , replace=TRUE )
-
-dens(samples.birth.girls.1)
-
-## no time to finish this, unfortunately.  Not quite right.
+dens(sim.births.girls1st, show.HPDI = .95, adj = 1)
+abline(v=39)
 
 ```
+
+# note: Knit doesn't like the 'simplehist' command

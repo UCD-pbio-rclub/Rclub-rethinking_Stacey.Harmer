@@ -2,6 +2,7 @@
 Stacey Harmer  
 June 17, 2016  
 
+<<<<<<< HEAD
 ####8E1.  Required of simple Metropolis algorithm:  
 3)  The proposal distribution must be symmetric.  (that is, probability of going A to B same as going B to A)
 
@@ -9,10 +10,19 @@ June 17, 2016
 posterior disctribution; the parameter value at one moment helps adjust what the proopsed parameter values will
 be.  (conjugate priors).  But maybe you don't want to use conjugate priors.  And Gibbs sampling becomes very 
 inefficient when you have hundreds or thousands of parameters.
+=======
+###8E1.  Required of simple Metropolis algorithm:  
+3)  The proposal distribution must be symmetric.  
+
+###8E2.  Gibbs sampling efficiency is greater than Metropolitan because it is more efficient at exploring the 
+posterior disctribution; the parameter value at one moment helps adjust what the proopsed parameter values will
+be.  (conjugate priors)
+>>>>>>> efd61fc6f9062ead1730b4b0921ff1f32704ffe3
 
 ####8E3.  HMC can't handle discrete parameters.  this is because it 'glides' through possible parameter values 
 and this isn't possible with discrete parameters. 
 
+<<<<<<< HEAD
 ####8E4.  
 The effective number of samples, n_eff, are the effectively independent samples. Markov chains tend to be   
 autocorrelated, meaning subsequent samples are not truly independent.
@@ -1291,3 +1301,9 @@ compare(test.50, test.500) # no pWAIC differences
 ```
 
 ![](Ch8_problems_2016-06-17_files/figure-html/unnamed-chunk-3-4.png)<!-- -->
+=======
+
+
+
+
+>>>>>>> efd61fc6f9062ead1730b4b0921ff1f32704ffe3

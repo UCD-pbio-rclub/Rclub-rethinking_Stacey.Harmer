@@ -153,9 +153,14 @@ b ~ dnorm( 0 , 10 ) ,
 sigma ~ dunif( 0 , 50 )
 ) ,
 data=d2 )
+## Julin used hte link function, from section 4.5
 
 # page 103?
 # I guess that I'll extract samples from my model and then look at HDPI from them
+### but where did the'post' come from??
+
+post <- expand.grid( mu=mu , sigma=sigma )
+head(post)
 
 mu.46.95 <- post$a + post$b*46.95
 mean(mu.46.95) # 156.1568

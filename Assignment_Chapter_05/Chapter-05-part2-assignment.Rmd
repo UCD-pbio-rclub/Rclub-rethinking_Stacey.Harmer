@@ -190,7 +190,7 @@ weight.sim.1 <- sim(m.food.group, n = 1e4)
 weight.PI.1 <- apply(weight.sim.1, 2, PI, prob = 0.95)
 
 # now plot predictions against observed
-plot(foxes$weight ~ mu.food.group.mean  , col = rangi2,
+plot(mu.food.group.mean ~ foxes$weight  , col = rangi2,
      xlab = "observed weight", ylab= "predicted weight")
 abline(a =0, b=1, lty=2)
 for (i in 1:nrow(foxes) )

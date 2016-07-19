@@ -13,7 +13,7 @@ zero each slope parameter should be on
 more funding = faster time and bigger lab = faster time (negative slope)
 
 mu <- a + bf * funding + bs * lab.size
-I expect both bf and bs to be negative
+I expect both bf and bs to be positive, according to way question is written.
 
 5E4. Suppose you have a single categorical predictor with 4 levels (unique values), labeled A, B, C
 and D. Let Ai be an indicator variable that is 1 where case i is in category A. Also suppose Bi, Ci,
@@ -37,9 +37,8 @@ less driving, which leads to less eating out, which leads to less consumption of
 Can you outline one or more multiple regressions that address these two mechanisms? Assume you
 can have any predictor data you need.
 
-
 mean.obesity = alpha + b.p * gas.price + b.d * amt.driving
 
 mean.obesity = alpha + b.p * gas.price + b.r * rest.meals
 
-mean.obesity = alpha + b.p * gas.price + b.d * amt.driving + b.r * rest.meals
+mean.obesity = alpha + b.p * gas.price + b.d * amt.driving + b.r * rest.meals 

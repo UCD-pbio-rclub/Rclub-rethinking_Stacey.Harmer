@@ -13,6 +13,12 @@ Statistical Rethinking, Ch 6.3. and 6.4
 ##### 6M1. Write down and compare the definitions of AIC, DIC, and WAIC. Which of these criteria
 ##### is most general? Which assumptions are required to transform a more general criterion into a less
 ##### general one?
+ 
+ see Julin's script
+AIC = training deviance + 2* number of parageters in model
+DIC = average training Deviance across posterior + difference beween average training deciance and the deviance calculation using posterior mean.
+**** check Emily's answer for WAIC
+
 
 AIC is approximation of predictive accuracy, and is only reliable when: 
 1.  priors flat, or ovewhelmed by likelihood
@@ -23,7 +29,7 @@ DIC = Deviance Information Criterion.  only 2 and 3 of the above are assumed.
 
 WAIC = Widely Applicable Information Criterion.  no assumptions about shape of posterior
 
-The different assumptions are about the shape of the posterior distribution and whether priors flat.
+The different assumptions are about the shape of the posterior distribution and whether priors are flat.
 
 
 #####  6M5. Provide an informal explanation of why informative priors reduce overfitting.
@@ -31,6 +37,8 @@ The different assumptions are about the shape of the posterior distribution and 
 When you approach the problem with the assumption that you know something about the parameters,
 this reduces the possibility that you'll get outputs that diverge widely from your understanding
 of reality.
+
+or, informative priors are less likely to be indluenced by particulars of training set
 
 #####  6M6. Provide an informal (?) explanation of why overly informative priors result in underfitting.
 
