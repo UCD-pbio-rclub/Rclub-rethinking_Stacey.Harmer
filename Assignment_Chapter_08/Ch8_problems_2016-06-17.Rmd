@@ -19,17 +19,13 @@ inefficient when you have hundreds or thousands of parameters.
 and this isn't possible with discrete parameters. 
 
 ####8E4.  
-The effective number of samples, n_eff, are the effectively independent samples. Markov chains tend to be   
-autocorrelated, meaning subsequent samples are not truly independent.
+The effective number of samples, n_eff, are the effectively independent samples. Markov chains tend to be autocorrelated, meaning subsequent samples are not truly independent.
 
 ####8E5.  
-Rhat should approach 1.00.  This is a 'convergence diagnostic'.  If greater than 1.00, it indicates the chain
-has not yet converged.
+Rhat should approach 1.00.  This is a 'convergence diagnostic'.  If greater than 1.00, it indicates the chain has not yet converged.
 
 ####8E6.  
-I'm not going to try to sketch it out using R.  But good trace plots rapidly go up and down (good mixing) and 
-has stationarity (path stays within posterior distribution).  A malfunctioning chain would show spiking and 
-wouldn't converge to final values.
+I'm not going to try to sketch it out using R.  But good trace plots rapidly go up and down (good mixing) and has stationarity (path stays within posterior distribution).  A malfunctioning chain would show spiking and wouldn't converge to final values.
 
 ####8m1.  
 RE-estimate ruggedness model, using uniform prior and exponential prior
@@ -86,6 +82,7 @@ precis(m8.1stan.sig.exp) # also about the same;
 compare(m8.1stan, m8.1stan.sig.uni)
 compare(m8.1stan, m8.1stan.sig.exp) 
 compare(m8.1stan.sig.uni, m8.1stan.sig.exp)  
+compare(m8.1stan, m8.1stan.sig.uni, m8.1stan.sig.exp)  
 # yes all very similar
 ```
 
@@ -243,7 +240,286 @@ precis(test.25) # Rhat greater tahn 1 for 3 parameters; neff pretty low
 plot(test.25)
 compare(test.25, test.500) # big pWAIC differences
 
-compare(test.50, test.500) # no pWAIC differences
+compare(test.25, test.50, test.500, test.1000) # no pWAIC differences
 
 ## SO looks like 50 warmup iterations are enough, but 25 are not
 ```
+
+
+####8H1
+Run the model below and then inspect the posterior distribution and explain what it is accomplishing.
+
+```{r}
+library(rethinking)
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+mp <- map2stan(
+  alist(
+  a ~ dnorm(0,1),
+  b ~ dcauchy(0,1)
+),
+data=list(y=1),
+start=list(a=0,b=0),
+iter=1e4, warmup=100 , WAIC=FALSE )
+
+#ran slowly.  I don't see a model here, just parameters
+
+precis(mp)
+post.mp <- extract.samples(mp)
+str(post.mp) # 2 values, as expected, but even here I can see they vary wildly.
+pairs(post.mp) # no relationship between them, but why would there be?
+plot(mp) # messy.  poor stationarity/convergence.
+
+summary(post.mp$a)  # looks like samples from the normal distribution
+summary(post.mp$b) # much 
+```
+I think I'm just recovering samples from the Gaussian and Cauchy distributions. 
+Cauchy has long tails.  But shouldn't this be half Cauchy?  so why negative values for b?
+```{r}
+y <- rcauchy(1e4,0,5)
+mu <- sapply( 1:length(y) , function(i) sum(y[1:i])/i )
+plot(mu,type="l")
+```
+
+####8H2
+REvist models from chapter 5; Repeat that analysis, using map2stan this time, fitting models m5.1, m5.2, and m5.3.  Use compare to compare the models on the basis of
+WAIC. Explain the results.
+
+```{r}
+
+library(rethinking)
+library(rstan)
+data(WaffleDivorce)
+d <- WaffleDivorce
+# standardize predictor
+d$MedianAgeMarriage.s <- (d$MedianAgeMarriage-mean(d$MedianAgeMarriage))/
+sd(d$MedianAgeMarriage)
+
+# get rid of data I won't need for these models
+
+d.trim <- d[, c(4,5,7,14)]
+
+# fit first model
+m5.1 <- map(
+  alist(
+    Divorce ~ dnorm( mu , sigma ) ,
+    mu <- a + bA * MedianAgeMarriage.s ,
+    a ~ dnorm( 10 , 10 ) ,
+    bA ~ dnorm( 0 , 1 ) ,
+    sigma ~ dunif( 0 , 10 )
+) , data = d.trim )
+precis(m5.1)
+
+m5.1.stan <- map2stan(
+  alist(
+    Divorce ~ dnorm( mu , sigma ) ,
+    mu <- a + bA * MedianAgeMarriage.s ,
+    a ~ dnorm( 10 , 10 ) ,
+    bA ~ dnorm( 0 , 1 ) ,
+    sigma ~ dunif( 0 , 10 )  # I'm keepign the uniform prior, although I could have changed it to half Cauchy
+) , data = d.trim )
+
+pairs(m5.1.stan)
+plot(m5.1.stan) # seems OK
+compare(m5.1, m5.1.stan)
+# these are very similar.  
+par(mfrow=c(1,1)) 
+plot( compare(m5.1, m5.1.stan) , SE=TRUE , dSE=TRUE )  # very similar
+
+
+# now the second model
+d.trim$Marriage.s <- (d.trim$Marriage - mean(d.trim$Marriage))/sd(d.trim$Marriage)
+m5.2 <- map(
+  alist(
+    Divorce ~ dnorm( mu , sigma ) ,
+    mu <- a + bR * Marriage.s ,
+    a ~ dnorm( 10 , 10 ) ,
+    bR ~ dnorm( 0 , 1 ) ,
+    sigma ~ dunif( 0 , 10 )
+) , data = d.trim )
+
+m5.2.stan <- map2stan(
+  alist(
+    Divorce ~ dnorm( mu , sigma ) ,
+    mu <- a + bR * Marriage.s ,
+    a ~ dnorm( 10 , 10 ) ,
+    bR ~ dnorm( 0 , 1 ) ,
+    sigma ~ dunif( 0 , 10 )
+) , data = d.trim )
+
+
+pairs(m5.2.stan)
+plot(m5.2.stan) # seems OK
+compare(m5.2, m5.2.stan)  # again, almost identical
+
+plot( compare(m5.2, m5.2.stan) , SE=TRUE , dSE=TRUE )  # very similar
+
+# last model; incorporate marriage age and marriage rate
+
+m5.3 <- map(
+  alist(
+    Divorce ~ dnorm( mu , sigma ) ,
+    mu <- a + bR*Marriage.s + bA*MedianAgeMarriage.s ,
+    a ~ dnorm( 10 , 10 ) ,
+    bR ~ dnorm( 0 , 1 ) ,
+    bA ~ dnorm( 0 , 1 ) ,
+    sigma ~ dunif( 0 , 10 )
+) ,
+data = d.trim)
+
+m5.3.stan <- map2stan(
+  alist(
+    Divorce ~ dnorm( mu , sigma ) ,
+    mu <- a + bR*Marriage.s + bA*MedianAgeMarriage.s ,
+    a ~ dnorm( 10 , 10 ) ,
+    bR ~ dnorm( 0 , 1 ) ,
+    bA ~ dnorm( 0 , 1 ) ,
+    sigma ~ dunif( 0 , 10 )
+) ,
+data = d.trim)
+precis( m5.3.stan )
+
+pairs(m5.3.stan)  # now, correlation between bR and bA.
+plot(m5.3.stan) # seems OK
+compare(m5.3, m5.3.stan)  # again, almost identical
+
+par(mfrow=c(1,1)) 
+plot( compare(m5.3, m5.3.stan) , SE=TRUE , dSE=TRUE )  # very similar
+## so doesn't matter in this case whether you use MCMC or not.
+
+```
+
+
+####8H3
+Changing parameters. 
+
+
+```{r}
+N <- 100 # number of individuals
+height <- rnorm(N,10,2) # sim total height of each
+leg_prop <- runif(N,0.4,0.5) # leg as proportion of height
+leg_left <- leg_prop*height + # sim left leg as proportion + error
+rnorm( N , 0 , 0.02 )
+leg_right <- leg_prop*height + # sim right leg as proportion + error
+rnorm( N , 0 , 0.02 )
+# combine into data frame
+d <- data.frame(height,leg_left,leg_right)
+
+# fit model using stan
+
+m5.8s <- map2stan(
+  alist(
+    height ~ dnorm( mu , sigma ) ,
+    mu <- a + bl*leg_left + br*leg_right ,
+    a ~ dnorm( 10 , 100 ) ,
+    bl ~ dnorm( 2 , 10 ) ,
+    br ~ dnorm( 2 , 10 ) ,
+    sigma ~ dcauchy( 0 , 1 )
+) ,
+data=d, chains=4,
+start=list(a=10,bl=0,br=0,sigma=1) )
+
+plot(m5.8s) # this looks OK
+pairs(m5.8s) # br and bl are totally correlated
+
+# as above, but make is so that br must be positive (makes sense, no?)
+m5.8s2 <- map2stan( 
+  alist(
+    height ~ dnorm( mu , sigma ) ,
+    mu <- a + bl*leg_left + br*leg_right ,
+    a ~ dnorm( 10 , 100 ) ,
+    bl ~ dnorm( 2 , 10 ) ,
+    br ~ dnorm( 2 , 10 ) & T[0,] ,
+    sigma ~ dcauchy( 0 , 1 )
+) ,
+data=d, chains=4,
+start=list(a=10,bl=0,br=0,sigma=1) )
+plot(m5.8s2)
+pairs(m5.8s2) # still very correlated
+compare(m5.8s, m5.8s2)  # they are even
+precis(m5.8s)
+precis(m5.8s2)  # throsws warnings, but looks very similar to above
+
+# compare the two posterior distributions.
+post.m5.8s <- extract.samples(m5.8s)
+post.m5.8s2 <- extract.samples(m5.8s2)
+
+str(post.m5.8s) # mix of positive and negative for bl.  
+str(post.m5.8s2) # as expected, br are all positive, bl all negative
+summary(post.m5.8s$bl) # range is -10.1 to 4.2
+summary(post.m5.8s2$bl) # range is -11.3 to 2
+
+summary(post.m5.8s$br) # range is -2 to 12
+summary(post.m5.8s2$br) # range is 0.04 to 13.4
+
+# model fits appear similar, but now range of bl has changed after imposed constraints on br.
+
+```
+
+####8H4
+DIC or WAIC to compare the above models 
+
+```{r}
+# use the default WAIC function
+compare(m5.8s, m5.8s2)
+# models almost same.  
+# pWAIC is estimated number of parameters.  This is 3.2 and 3.3 for the 2 models, so about the same.
+
+# did I do something wrong ? these seem too similar to be of itnerest. 
+
+```
+
+####8H5
+Modify Metropolis code so island number != population 
+
+```{r}
+
+# original
+num_weeks <- 1e5 
+positions <- rep(0,num_weeks)
+current <- 10
+for ( i in 1:num_weeks ) {
+  # record current position
+  positions[i] <- current
+  # flip coin to generate proposal
+  proposal <- current + sample( c(-1,1) , size=1 )
+  # now make sure he loops around the archipelago
+  if ( proposal < 1 ) proposal <- 10
+  if ( proposal > 10 ) proposal <- 1
+  # move?
+  prob_move <- proposal/current
+  current <- ifelse( runif(1) < prob_move , proposal , current )
+}
+
+## need to modify the probability line.  
+# I think you need to know the population of each island in advance
+# perhaps make a df with that information, then refer to it within script?
+
+num_weeks <- 1e5 
+positions <- rep(0,num_weeks)
+current <- 10
+islands <- as.data.frame(cbind(1:10, c(3,5,8,9,1,2,5,7,9,4 )))
+colnames(islands) <- c("name", "pop")
+
+for ( i in 1:num_weeks ) {
+  # record current position
+  positions[i] <- current
+  # flip coin to generate proposal
+  proposal <- current + sample( c(-1,1) , size=1 )
+  # now make sure he loops around the archipelago
+  if ( proposal < 1 ) proposal <- 10
+  if ( proposal > 10 ) proposal <- 1
+  # move?
+  prob_move <- islands[proposal, 2]/islands[current, 2]
+  current <- ifelse( runif(1) < prob_move , proposal , current )
+}
+# seemed to run, but I'm a bit dubious.  Not very elegant
+```
+
+####8H6
+WRite globe tossing script.
+I think the model on page 42 (code 2.6) is what should be emulated
+
+```{r}
