@@ -389,12 +389,16 @@ par(mfrow=c(1,1))
 plot( compare(m5.3, m5.3.stan) , SE=TRUE , dSE=TRUE )  # very similar
 ## so doesn't matter in this case whether you use MCMC or not.
 
+compare(m5.1.stan, m5.2.stan, m5.3.stan)
+# here, 5.1.stan is most facored, then 5.3.stan,then 5.1.stan
+
+compare(m5.1, m5.2, m5.3)
+# pretty similar to the above.  
 ```
 
 
 ####8H3
 Changing parameters. 
-
 
 ```{r}
 N <- 100 # number of individuals
@@ -441,6 +445,10 @@ pairs(m5.8s2) # still very correlated
 compare(m5.8s, m5.8s2)  # they are even
 precis(m5.8s)
 precis(m5.8s2)  # throsws warnings, but looks very similar to above
+
+par(mfrow= c(1,2))
+plot(precis(m5.8s))
+plot(precis(m5.8s2))
 
 # compare the two posterior distributions.
 post.m5.8s <- extract.samples(m5.8s)
