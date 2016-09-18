@@ -1,0 +1,270 @@
+---
+title: "Rethinking, Ch2 problems"
+author: "Stacey Harmer"
+date: "September 17, 2016"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 2E1
+probability of rain on Monday corresponds to: Pr(rain|Monday)
+See page 36
+
+## 2E2
+Pr(Monday|rain) corresponds to probability of Monday when rainy. or 3.
+
+## 2E3
+probability that it is Monday given that it is raining = 1) Pr(Monday|rain)
+
+## 2E4
+What does is mean to say the probability of water is 0.7?
+At each toss, there is land or water (0 or 1), never a fraction.  But 0.7 tells us something about how often
+each of these two outcomes will be observed.
+
+## 2M1
+Compute and plot grid approximate posterior distribution for each of hte below, assumign uniform prior.
+See R code 2.3
+
+```{r}
+library(rethinking)
+
+#1.  W, W, W
+
+# define grid
+p_grid <- seq( from=0 , to=1 , length.out=20 )
+
+# define prior
+prior <- rep( 1 , 20 )
+
+# compute likelihood at each value in grid
+likelihood <- dbinom( 3 , size=3 , prob=p_grid )
+
+# compute product of likelihood and prior
+unstd.posterior <- likelihood * prior
+
+# standardize the posterior, so it sums to 1
+posterior <- unstd.posterior / sum(unstd.posterior)
+
+plot( p_grid , posterior , type="b" ,
+      xlab="probability of water" , ylab="posterior probability" )
+mtext( "20 points" )
+
+
+#2.  W, W, W, L
+
+# define grid
+p_grid <- seq( from=0 , to=1 , length.out=20 )
+
+# define prior
+prior <- rep( 1 , 20 )
+
+# compute likelihood at each value in grid
+likelihood <- dbinom(3 , size=4 , prob=p_grid )
+
+# compute product of likelihood and prior
+unstd.posterior <- likelihood * prior
+
+# standardize the posterior, so it sums to 1
+posterior <- unstd.posterior / sum(unstd.posterior)
+
+plot( p_grid , posterior , type="b" ,
+      xlab="probability of water" , ylab="posterior probability" )
+mtext( "20 points" )
+
+
+#3.  L, W, W, L, W, W, W
+
+# define grid
+p_grid <- seq( from=0 , to=1 , length.out=20 )
+
+# define prior
+prior <- rep( 1 , 20 )
+
+# compute likelihood at each value in grid
+likelihood <- dbinom( 5 , size=7 , prob=p_grid )
+
+# compute product of likelihood and prior
+unstd.posterior <- likelihood * prior
+
+# standardize the posterior, so it sums to 1
+posterior <- unstd.posterior / sum(unstd.posterior)
+
+plot( p_grid , posterior , type="b" ,
+      xlab="probability of water" , ylab="posterior probability" )
+mtext( "20 points" )
+
+```
+
+
+## 2M2
+As above, but assume new prior
+```{r}
+# define grid
+p_grid <- seq( from=0 , to=1 , length.out=20 )
+
+# define prior
+prior <- c(rep( 0 , 10 ), rep(1, 10))
+
+#1.  W, W, W
+
+# compute likelihood at each value in grid
+likelihood <- dbinom( 3 , size=3 , prob=p_grid )
+
+# compute product of likelihood and prior
+unstd.posterior <- likelihood * prior
+
+# standardize the posterior, so it sums to 1
+posterior <- unstd.posterior / sum(unstd.posterior)
+
+plot( p_grid , posterior , type="b" ,
+      xlab="probability of water" , ylab="posterior probability" )
+mtext( "20 points" )
+
+
+#2.  W, W, W, L
+
+# compute likelihood at each value in grid
+likelihood <- dbinom(3 , size=4 , prob=p_grid )
+
+# compute product of likelihood and prior
+unstd.posterior <- likelihood * prior
+
+# standardize the posterior, so it sums to 1
+posterior <- unstd.posterior / sum(unstd.posterior)
+
+plot( p_grid , posterior , type="b" ,
+      xlab="probability of water" , ylab="posterior probability" )
+mtext( "20 points" )
+
+
+#3.  L, W, W, L, W, W, W
+
+# compute likelihood at each value in grid
+likelihood <- dbinom( 5 , size=7 , prob=p_grid )
+
+# compute product of likelihood and prior
+unstd.posterior <- likelihood * prior
+
+# standardize the posterior, so it sums to 1
+posterior <- unstd.posterior / sum(unstd.posterior)
+
+plot( p_grid , posterior , type="b" ,
+      xlab="probability of water" , ylab="posterior probability" )
+mtext( "20 points" )
+
+```
+
+## 2M3
+Assume 2 globes. Earth, with p = .7.  And Mars, with p = 0 (no water)
+One toss of a globe gave 'land'.  what is posterior probability that globe was Earth?
+```{r}
+# What are the chances that if I tossed Mars, I'd get land?  100%
+# what are chances that if I tossed Earth, I'd get land?
+
+likelihood <- dbinom(0, size = 1, prob = .7)
+# likelihood is 0.3
+
+# Equally likely to have picked up either globe.  
+
+# posterior = likelihood*prior/avg likelihood
+
+#Pr(Earth|land) = Pr(earth) * Pr(land|earth) / Pr(land)
+# Pr(land | Earth)  = 0.3
+# Pr(Earth) = 0.5
+# Pr(land) = (1+.3)/2 = 0.65
+
+# so:  Pr(earth|land) = 0.5 * 0.3 / 0.65 = 0.2308
+
+```
+
+
+## 2M4
+Assume deck with 3 cards.  each side either B or W.  They are:  B/B, B/W, W/W
+So 6 sides. 
+One card is picked; B wide up.  What are chances other side is B?
+The card drawn was BB or BW.  So 4 sides to consider.  2 ways for BB to have B up.  1 way for WB to have B up.  
+So the chosen card twice as likely to be BB as BW.  Thus probaility 2nd side B = 2*BB/(2*BB + 1*BW) = 2/3
+
+## 2M5
+4 cards:  BB, BW, WW, BB.  One card chosen, side up is B.  Probability other side will be B?
+Need consider 3 cards, or 6 sides.  4 ways for BB to have B side up.  1 way for BW to have B side up.
+ so probaility = 4/(4+1) = 0.8
+ 
+## 2M6
+Now, B card less likelyt to be pulled.  one each BB, BW, WW cards.  But effectively:
+3 WW, 2 BW, and 1 BB
+a card is pulled, and B side is up.  What is probaility that other side is B?
+effecitvely, we consider 3 cards ( 2 BW, 1 BB) 
+2 ways for BB to have B side up; 2 ways for BW to have B side up.  So:  2/(2+2) = 0.5
+
+## 2M7
+Treat problem like globe toss. Count all the ways to see each observation for each first card.
+first card B:  2 ways for BB to show this, 1 way for BW, 0 way for WW
+second card W: 0 ways for BB to show this, 1 way for BW, 2 ways for WW
+
+Table:
+first card          second card                total prob
+BW = 1 ways B       WW = 2 ways W               1*2 = 2
+BB = 2 ways B       WB or WW = 3 ways W         2*3 = 6
+WW = 0 ways B       BW = 1 way W                0*1 = 0
+
+So probabilit first card was BB = 6/8 = 0.75
+
+## 2H1
+Two panda species.  A gives birth to twins 10% of time.  B gives twins 20% of time
+Unknown panda had twins.  What is chance next birth will be twins?
+
+ one way would be:
+ If species A, chance of twins would be 10%. 
+ If spcies B, chance woudl be 20%.
+ So, since we don't know, chance of next birth being twins is 15%
+
+(Should actually be greater than 15% since 1st birth suggests higher chance panda is species B.)
+
+OK:
+PR(A|twins) = Pr(twins|A)*Pr(A) / Pr(twins)
+= (0.1 * .5)/(0.15) = 0.333  chance that panda was species A
+So
+Pr(twins|B) * Pr(B) =  0.2 * (1-.33) =  0.134
+Pr(twins|A) * Pr(A) = 0.1 * (.33) = 0.033
+Sum = 0.134 + 0.033 = 0.167
+
+## 2H2
+Assume only 1 birth seen, and it was twins.  Probability that panda is A?
+PR(A|twins) = Pr(twins|A)*Pr(A) / Pr(twins)
+= (0.1 * .5)/(0.15) = 0.333  chance that panda was species A
+
+## 2H3
+first birth twins, second single.  Chance the mmom is A?
+
+1st birth gives us:
+PR(A|twins) = Pr(twins|A)*Pr(A) / Pr(twins)
+= (0.1 * .5)/(0.15) = 0.333  chance that panda was species A
+
+2nd birth gives us:
+PR(A|single) = Pr(single|A)*Pr(A) / Pr(single)
+= (0.9 * .33)/(sum(.9*0.33, .8*.666)) = 0.358  chance that panda was species A       
+
+
+## 2H4
+OK, now we have a test.  
+It positively identifes A with p of 0.8
+It posibitiley idnetified B wiht p of 0.65
+
+It is not clear to me what outcome is if it is wrong.  No ID, or wrong species?
+In other words, is there a p of 0.35 that panda is A if test says it is B? 
+And a p of 0.2 that it is B if test claims A?    Let's assume so.
+
+Pr(A|pos) = Pr(A) * Pr(pos|A) / Pr(pos)
+= (0.5 * .8) /(sum(.8*.5, .35*.5)) = 0.696
+
+OK, now use the birth info as prior (so Pr(A) = 0.358)
+
+Pr(A|pos) = Pr(A) * Pr(pos|A) / Pr(pos)
+= (0.358 * .8) /(sum(.8*0.358, .35*(1-0.358))) = 0.56036
+
