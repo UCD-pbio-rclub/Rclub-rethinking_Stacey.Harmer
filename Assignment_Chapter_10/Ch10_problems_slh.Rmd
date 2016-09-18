@@ -32,7 +32,12 @@ That is 0.96
 
 Example would be something like: logit(p) <- a + b*condition
 A value of 1.7 for b would mean that if the 'condition' is present, the measured outcome is more likely to happen.
-
+```{r}
+exp(1.7)
+```
+This is 5.4 times more likely than when condition is absent. (440% increase)
+Exp is the inverse of log.  Coeff are likeilooh of odds:  log (p/(1-p))  = log-odds
+Note logistic is hte inverse of logit
 
 ##10M1 - Analysis of data in aggregated and disaggregated forms changes the likelihood of the data.  Why?
 
@@ -76,6 +81,8 @@ m10.4.stan <- map2stan(
                    ) ,
                    data=d2 , chains=2 , iter=2500 , warmup=500 )
 plot(m10.4.stan)
+precis(m10.4.map, depth =2)
+precis(m10.4.stan, depth = 2)
 compare(m10.4.map, m10.4.stan) # not a valid comparison
 
 ```
