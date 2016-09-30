@@ -1,0 +1,192 @@
+---
+title: "Ch10_homework_2016-09-30"
+author: "Stacey Harmer"
+date: "September 30, 2016"
+output: 
+html_document: 
+keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Do problems
+
+10E4
+10M2, 10M4, 10M5
+10H4
+
+
+## 10 E4  Why do Poisson regressions sometimes require the use of an offset? Provide an example.
+
+Sometimes the sampling rate varies across the dataset, making it difficult to directly compare data from the 
+first and last portions of the dataset.  Ex:  I first collected samples at hourly intervals (say, for 2 days after
+treatment), and then I started collecting samples at 6 hour intervals.   Offset term can compensate.
+
+## 10 M2  If a coefficient in a Poisson regression has value 1.7, what does this imply about the change in the outcome?
+
+This would be lambda.  We can think of this as a rate (like books per day).  
+
+outcome increases by exp(1.7) = 5.47 fold per rate
+
+## 10 M4  Explain why the log link is appropriate for a Poisson generalized linear model.
+
+A Poisson distribution is a specialized form of the binomial distribution.  Poisson regression is a 
+GLM that models a count outcome without a known maximum (e.g. number of elephants in Kenya)
+p 286: The log link function maps a parameter that is defined over only positive real values 
+onto a linear model.
+
+Binomial uses logit; the inverse of logit is the logistic
+ex on page 285:  p = exp(alpha + beta*x)/ 1 + exp(alpha + beta*x)
+     this is probability; must be between 0 and 1
+Poisson uses log: the inverse of log is exponentiation 
+
+ex page 286:  sigma = exp(alpha + beta *x)  
+    rate of occurrence - can be greater than 1
+    
+    In both cases (logit and log) values are always greater than 0
+
+##10 M5  What would it imply to use a logit link for the mean of a Poisson generalized linear model?
+Can you think of a real research problem for which this would make sense?
+
+This is related to the above, but I am fuzzy on the real implications.  
+
+From a practical standpoint, if you were to plot out an exponential curve it would not level off at top
+ON the other hand, a logistic curve does level off (approaching saturation value) at the top
+
+So maybe the above would be why you'd want ot use a logit link?   To imply a saturating level?
+
+per measurement, never rate greater than 1.  But Poisson distribution.
+
+Illumina bead array??  only one bead per well.  if unit is well, and many more wells than beads.  
+
+## 10H4   Model Salamanders as Poisson variable
+
+a) Model the relationship between density and percent cover, using a log-link (same as the example
+in the book and lecture). Use weakly informative priors of your choosing
+
+```{r}
+library(rethinking)
+data(salamanders)
+d <- salamanders 
+head(d)
+summary(d)
+
+m10.H4 <- map(
+  alist(
+    SALAMAN ~ dpois( lambda ),
+    log(lambda) <- a + bc*PCTCOVER ,
+    a ~ dnorm(0,2),
+    bc ~ dnorm( 0 , 1 )
+  ), data=d )
+
+precis(m10.H4, corr=T)
+plot(precis(m10.H4))  # on its own, percent cover doesn't add much
+pairs(m10.H4)  # a and bc are very highly negatively correlated
+```
+
+Check the quadratic approximation again, by comparing map to map2stan. 
+
+I think that I want to compare posterior distributions for the two types of models
+I'll use the plotting function pairs to  compare samples extracted from posterior
+```{r}
+# get map2stan up and ready
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+m10.H4.stan <- map2stan( m10.H4 , data=d , iter=1e4 , warmup=1000 )
+precis(m10.H4.stan) # looks fine
+plot(m10.H4.stan)
+
+par( mfrow = c( 1,1 ) )
+plot(precis(m10.H4.stan)) # similar to MCMC
+pairs(m10.H4.stan) # ditto
+
+```
+
+Then plot the expected counts and their 89% interval against percent cover.
+```{r}
+
+# make plot of raw data to begin
+plot(  d$PCTCOVER , d$SALAMAN ,col=rangi2 ,
+      xlab="Salamanders" , ylab="Forest Cover" )
+# only get high density of salamanders if high coverage
+
+# sequence of forest coveragage to compute over
+pred.df <- data.frame(PCTCOVER=seq(0,100,1))
+
+# now I think I extract samples from posterior, then compute lambda
+# link function should do this for me
+
+lambda.pred.sal <- link(m10.H4, data = pred.df) 
+lambda.median.sal <- apply( lambda.pred.sal , 2,median )
+length(lambda.median.sal) # 101
+lambda.PI.sal <- apply(lambda.pred.sal  , 2 , PI ) # default is 0.89
+length(lambda.PI.sal) #202
+
+# plot predicted trend for high contact islands
+lines( pred.df$PCTCOVER , lambda.median.sal , col=rangi2 )
+dim(pred.df) #101 by 1
+length(lambda.median.sal) #101
+shade( lambda.PI.sal , pred.df$PCTCOVER , col=col.alpha(rangi2,0.2) ) 
+
+
+```
+
+(b) Can you improve the model by using the other predictor, FORESTAGE? Try any models you
+think useful. Can you explain why FORESTAGE helps or does not help with prediction?
+
+
+```{r}
+plot(d$PCTCOVER, d$FORESTAGE)  # coverage is low for youngest stage; then at high coverage braod range of stages
+# Try simple model incorporating forest stage but no interaction term.
+#And then a term with interaction between coverage and stage
+
+#bc is for coverage; bs will be for stage
+
+# incorporating forest stage and coverage; no interaction
+m10.H6 <- map(
+  alist(
+    SALAMAN ~ dpois( lambda ),
+    log(lambda) <- a + bc*PCTCOVER + bs*FORESTAGE,
+    a ~ dnorm(0,2),
+    c(bc,bs) ~ dnorm(0,1)
+  ), data=d,
+  method = "Nelder-Mead",
+  start=list(a=0,bc=0,bs=0))
+precis(m10.H6)
+# I am getting an error when I knit the above, althought it ran fine the first time
+```
+
+```{r}
+# incorporating forest stage ; no coverage
+m10.H8 <- map(
+  alist(
+    SALAMAN ~ dpois( lambda ),
+    log(lambda) <- a + bs*FORESTAGE,
+    a ~ dnorm(0,2),
+    bs ~ dnorm(0,1)
+  ), data=d )
+# caution: model may not have converged
+# failed once, worked the second time
+```
+
+```{r}
+#ok, compare the 3 models
+compare(m10.H4, m10.H6,m10.H8)
+# m10.H4 has most weight.
+```
+
+```{r}
+#why does adding forest stage make model worse?
+precis(m10.H4)
+precis(m10.H6) # bs (for forest stage) is 0.  contributes nothing to the model
+precis(m10.H8)  # this model didn't converge
+
+# look at raw data
+plot( d$SALAMAN , d$FORESTAGE , col=rangi2 ,
+      xlab="Salamanders" , ylab="Forest Stage" )  # no obvious correlation
+
+```

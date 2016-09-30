@@ -27,7 +27,7 @@ At each toss, there is land or water (0 or 1), never a fraction.  But 0.7 tells 
 each of these two outcomes will be observed.
 
 ## 2M1
-Compute and plot grid approximate posterior distribution for each of hte below, assumign uniform prior.
+Compute and plot grid approximate posterior distribution for each of the below, assumign uniform prior.
 See R code 2.3
 
 ```{r}
@@ -248,7 +248,7 @@ PR(A|twins) = Pr(twins|A)*Pr(A) / Pr(twins)
 
 2nd birth gives us:
 PR(A|single) = Pr(single|A)*Pr(A) / Pr(single)
-= (0.9 * .33)/(sum(.9*0.33, .8*.666)) = 0.358  chance that panda was species A       
+= (0.9 * .333333333)/(sum(.9*0.33333333, .8*.66666666666)) = 0.36  chance that panda was species A       
 
 
 ## 2H4
