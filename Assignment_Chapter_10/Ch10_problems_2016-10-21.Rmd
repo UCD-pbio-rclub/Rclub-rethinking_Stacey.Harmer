@@ -1,0 +1,162 @@
+---
+title: "Ch10_problems_2016-10-21"
+author: "Stacey Harmer"
+date: "10/21/2016"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+Read the rest of chapter 10  (maybe later)
+
+Do problem 10H3
+
+First, look at the eagle dataset
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rethinking)
+?eagles
+library(MASS)
+data(eagles)
+eagles
+```
+y is number os successful attempts, n total number of attempts, P size of pirate, A age of pirate, V size of victim
+
+Build a binomial GLM of successful pirating attempts
+First need to turn P, A, and V into dummy variables.
+For P, 1 = large, 0 = small
+For A, 1 = adult, 0 = immature
+For V, 1 = large, 0 = small
+
+```{r}
+eagles$Pd <- ifelse(eagles$P == "L", 1, 0)
+eagles$Ad <- ifelse(eagles$A == "A", 1, 0)
+eagles$Vd <- ifelse(eagles$V == "L", 1, 0)
+```
+Now construct a binomial GLM; I'm modeling the successful attempts (n)
+
+```{r}
+eagle.glm <- map(
+  alist(
+    y ~ dbinom(n, p) ,
+    logit(p) <- a + bp*Pd + ba*Ad + bv*Vd ,
+    a ~ dnorm(0,10),
+    c(bp, ba, bv) ~ dnorm(0, 5)
+  ),
+data = eagles)
+precis(eagle.glm)
+pairs(eagle.glm)
+plot(precis(eagle.glm))
+# looks like b.p. is sig positive, b.v sig negative, and b.a slightly positive
+```
+Now do this using map2stan
+
+```{r}
+# get map2stan up and ready
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+eagle.stan <- map2stan( eagle.glm , chains = 4, data=eagles , iter=1e4 , warmup=1000 )
+precis(eagle.stan) # looks fine
+plot(eagle.stan)
+
+par( mfrow = c( 1,1 ) )
+plot(precis(eagle.stan)) # similar to MCMC
+pairs(eagle.stan) # ditto
+compare(eagle.glm, eagle.stan)
+
+```
+These plots look very similar, so quadratic approx seemed OK
+
+ACTUALLY, pairs plots in STAN are asymmetric - should have switched to STAN for below
+
+Plot posterior predictions.  Compute and display: 1) predicted _prob_ of success + its 89% interval for each row
+predicted success _count_ and its 89% interval
+
+First make dummy data for each type of interaction (between P, A, and V)
+```{r}
+eagle.pred <- data.frame(
+  Pd= c(1,1,1,1,0,0,0,0),
+  Ad= c(1,1,0,0,1,1,0,0),
+  Vd=rep(c(1,0), 4))
+```
+
+Build prediction ensemble
+```{r}
+eagle.ensemble <- ensemble(eagle.glm, data = eagles) # probably better way for 1 model
+# YES< COULD USE LINK function
+# summarize
+pred.eagle <- apply(eagle.ensemble$link, 2, mean)
+pred.eagle.PI <- apply(eagle.ensemble$link, 2, PI)
+# these are probabilities
+```
+Now I will plot the data plus the predictions
+
+```{r}
+# empty plot frame with good axes 
+plot( 0 , 0 , type="n" , xlab="pirate_size/pirate_age/victim_size" ,
+ylab="proportion success" , ylim=c(0,1) , xaxt="n" ,
+xlim=c(1,8) )
+axis( 1 , at=1:8 , labels=c("1/1/1","1/1/0","1/0/1","1/0/0", "0/1/1", "0/1/0", "0/0/1", "0/0/0") )
+
+# I think I need to determine actual prob of success in the dataset
+eagles$prob <- eagles$y/eagles$n
+# now plot these data
+points(eagles$prob)
+# and now add my posterior predictions
+points(pred.eagle, col = "blue")
+# now try to add the PI
+
+for ( i in 1:8 ) {
+  x <- i
+  y1 <- pred.eagle.PI["5%", x]
+  y2 <- pred.eagle.PI["94%", x]
+  lines(  c(y1,y2) , col=rangi2 , lwd=2 )
+} # nope, that was wrong
+
+for ( i in 1:8 ) {
+  x <- i
+  y1 <- pred.eagle.PI["5%", x]
+  y2 <- pred.eagle.PI["94%", x]
+  lines(  c(y1,y2), c(x,x),  lwd=2)
+}
+
+```
+Not quite right with the graphing.  But overall, the posterior look pretty good
+```{r}
+#how about:
+postcheck(eagle.glm, n=1e4)  #whoa!  probabilities and ranges are all there.  Pretty easy! 
+# outlier is the last one (small young pirate, small victim; actual success higher than predicted)
+par( mfrow = c( 1,1 ) )
+postcheck(eagle.stan, n=1e4)
+```
+
+OK, how do I graph out predicted success counts?
+
+SHOULD MULTIPLY PROBABILITY BY ACTUAL N IN THE REAL DATA FRAME
+
+JULIN MADE model with age*size as a factor.  This is a negative term in model.
+if both old and large, then less likely by a bit. Kind of negates the age.
+So size is the main thing, seems like.
+
+
+
+
+
+Do the following problem:
+
+The attached data sheet is from Liron and records germination for M82 and pen at two temperatures.
+
+Perform a Bayesian analysis to determine whether or not the two species have different germination rates, whether temperature affects germination, and whether there is a temperature by germination interaction.  Determine the posterior estimates for germination rate for each species at each temperature and determine the confidence intervals around these estimates.
+
+A couple of hints: if you are using Stan you will need to remove the "." from any variable names.
+
+could use gsub to remove dots from column names
+
+You may want to baseline temperature so that the lowest value is 0 rather than 14
+ may make temperature a dummy variable instead
+
+You may want to make a dummy variable for species.  Or alternatively use multiple intercepts.
+  make M82 zero and Penn 1  
+
