@@ -1,0 +1,248 @@
+---
+title: "Ch12_problems_2016-10-27.Rmd"
+author: "Stacey Harmer"
+date: "October 27, 2016"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Problems
+12E1 - Which of the following priors will produce more shrinkage in the estimates? alpha.tank ~ Normal(0,1) or alpha.tank ~ Normal(0,2)
+
+b) has larger SD than a).  Stronger shrinkage (p 362) is a greater differnce between a population's empirical (real) proportion
+and the global average (alpha).  I would think that A would have greater shrinkage, as there wouldn't be as much
+variation allowed in the global average estimates as in case B.  (see figure 12.1; real data are blue)
+
+12E2 - make the following a multilevel model:
+ y ~ binomial(1, p)
+ logit(p) = alpha.group[i] + beta*x
+ alpha.group ~ normal(0, 10)
+ beta ~ normal(0, 1)
+ 
+ y ~ binomial(1, p)
+ logit(p) = alpha.group[i] + beta*x
+ alpha.group ~ normal(alpha, sigma)
+ alpha ~ normal(0,10)
+ sigma ~ HalfCauchy(0,1)
+ beta ~ normal(0, 1)
+
+12M1 - Reed frog data.  Add predation and size treatment variables to the varying intercepts model.
+Consider models with etiher size or predation, both, and both with interaction
+Focus on inferred variation across tanks, and why it changes with different models
+
+```{r}
+library(rethinking)
+
+# get map2stan up and ready
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+data("reedfrogs")
+d <- reedfrogs
+head(d)
+tail(d)
+summary(d)
+```
+
+I think I need to make dummy variables first.
+For pred, set no = 0 and pred = 1
+for size, set small = 0 and big = 1
+```{r}
+d$pred_d <- ifelse(d$pred == "pred", 1, 0)
+d$size_d <- ifelse(d$size == "big", 1, 0)
+```
+A quick glance at the data
+```{r}
+library(ggplot2)
+pl <- ggplot(d, aes(pred, propsurv))
+pl + geom_boxplot() + facet_grid(. ~ size) + geom_jitter(width = 0.2)
+```
+Hmm, seems like 'big' may be a disadvantage for frogs with predators around
+
+To start, will re-run original model, and then start adding to it
+
+```{r}
+# make the tank cluster variable
+d$tank <- 1:nrow(d)
+head(d)
+# fit intercept only model
+m12M1.1 <- map2stan(
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] ,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0, 1)
+  ),
+  data=d, iter = 4000, chains = 4 )
+plot(m12M1.1)
+
+
+# intercept plus predation
+m12M1.2 <- map2stan(
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] + b*pred_d,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0, 1) ,
+    b ~ dnorm(0,1)
+  ),
+  data=d, iter = 4000, chains = 4 )
+plot(m12M1.2)
+
+# intercept plus size
+m12M1.3 <- map2stan(
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] + b*size_d,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0, 1) ,
+    b ~ dnorm(0,1)
+  ),
+  data=d, iter = 4000, chains = 4 )
+plot(m12M1.3)
+
+# intercept plus size and predation 
+m12M1.4 <- map2stan(
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] + b_p*pred_d + b_s*size_d ,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0, 1) ,
+    c(b_p, b_s) ~ dnorm(0,1)
+  ),
+  data=d, iter = 4000, chains = 4 )
+plot(m12M1.4)
+
+# intercept plus size and predation and their interaction
+m12M1.5 <- map2stan(
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] + b_p*pred_d + b_s*size_d + b_ps*pred_d*size_d,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0, 1) ,
+    c(b_p, b_s, b_ps) ~ dnorm(0,1)
+  ),
+  data=d, iter = 4000, chains = 4 )
+plot(m12M1.5)
+
+```
+OK, those seemed to run OK.  
+Now how to focus on inferred variation across tanks?
+I think that would be the 'sigma' value for the global intercept (?)
+
+```{r}
+#  precis(m12M1.1, depth  =2)[sigma] # fails - object not subsettable
+
+precis(m12M1.1, depth  =2) # sigma is 1.62  (intercept only)
+precis(m12M1.2, depth  =2) # sigma is 0.85  (plus predation)
+precis(m12M1.3, depth  =2) # sigma is 1.62  (plus size)
+precis(m12M1.4, depth  =2) # sigma is 0.79  (plus size plus predation)
+precis(m12M1.5, depth  =2) # sigma is 0.74 (plus predation and size and interaction)
+```
+I believe this tells me that +/- predation explains a great deal of the variation between tanks.
+
+
+12M2 - now, compare the models above using WAIC
+Can you reconcile the differences in WAIC  with posterior distributions of model?
+
+```{r}
+compare(m12M1.1, m12M1.2, m12M1.3, m12M1.4, m12M1.5)
+# models 2, 4, 5 seem pretty close (model 2 a bit better; since it is simpler, we should favor it)
+# while models 1 and 3 are negligible
+
+precis(m12M1.1)
+precis(m12M1.2)
+precis(m12M1.3)
+precis(m12M1.4)
+precis(m12M1.5)
+
+# comparing models 2,4 and 5, stdev for a is lowest for model 2
+
+# compare WAIC
+(m12M1.models <- compare(m12M1.1, m12M1.2, m12M1.3, m12M1.4, m12M1.5))
+par(mfrow=c(1,1))
+plot(m12M1.models, SE = T, dSE = T) 
+
+```
+
+What if I wanted to draw samples from the posteriors and compare to real data?
+```{r}
+pred.m12M1.1 <- link(m12M1.1, data = d)
+dim(pred.m12M1.1) #1000 rows, 48 colums
+head(pred.m12M1.1)
+
+# compute median intercept per tank
+d$propsurv_est1 <- apply(pred.m12M1.1, 2, median)
+
+pred.m12M1.2 <- link(m12M1.2, data = d)
+# compute median intercept per tank
+d$propsurv_est2 <- apply(pred.m12M1.2, 2, median)
+
+pred.m12M1.3 <- link(m12M1.3, data = d)
+# compute median intercept per tank
+d$propsurv_est3 <- apply(pred.m12M1.3, 2, median)
+
+pred.m12M1.4 <- link(m12M1.4, data = d)
+# compute median intercept per tank
+d$propsurv_est4 <- apply(pred.m12M1.4, 2, median)
+
+pred.m12M1.5 <- link(m12M1.5, data = d)
+# compute median intercept per tank
+d$propsurv_est5 <- apply(pred.m12M1.5, 2, median)
+
+```
+OK, now how to easily plot the real data by model?
+what if I use ggplot and I facet by predation?
+I will need to put plot over plot
+
+```{r}
+library(ggplot2)
+# first, the actual data
+pl.real <- ggplot(d, aes(tank, propsurv))
+pl.real <- pl.real + geom_point(size=2, colour="blue") 
+
+# for model 1 (intercept only; not plotted exactly as in book due to predation facet grid)
+p.real.mod1 <- ggplot() + 
+  geom_point(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_point(data = d, colour = "red", aes(x =tank, y =propsurv_est1)) + # red for model
+  facet_grid(.~pred)
+p.real.mod1
+
+p.real.mod2 <- ggplot() + 
+  geom_point(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_point(data = d, colour = "red", aes(x =tank, y =propsurv_est2)) + # red for model
+  facet_grid(.~pred)
+p.real.mod2
+# looks better
+
+p.real.mod3 <- ggplot() + 
+  geom_point(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_point(data = d, colour = "red", aes(x =tank, y =propsurv_est3)) + # red for model
+  facet_grid(.~pred)
+p.real.mod3
+# not great; about like #1
+
+p.real.mod4 <- ggplot() + 
+  geom_point(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_point(data = d, colour = "red", aes(x =tank, y =propsurv_est4)) + # red for model
+  facet_grid(.~pred)
+p.real.mod4
+# pretty good
+
+p.real.mod2and4 <- ggplot() + 
+  geom_jitter(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_jitter(data = d, colour = "red", aes(x =tank, y =propsurv_est2)) + # red for model 2
+  geom_jitter(data = d, colour = "green", aes(x =tank, y =propsurv_est4)) + # green for model 4
+  facet_grid(.~pred) 
+p.real.mod2and4
+# can see models 2 and 4 are quite similar
+
+```
