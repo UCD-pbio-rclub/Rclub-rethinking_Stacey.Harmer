@@ -2,7 +2,9 @@
 title: "Ch12_problems_2016-10-27.Rmd"
 author: "Stacey Harmer"
 date: "October 27, 2016"
-output: html_document
+output: 
+  html_document: 
+    keep_md: yes
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
