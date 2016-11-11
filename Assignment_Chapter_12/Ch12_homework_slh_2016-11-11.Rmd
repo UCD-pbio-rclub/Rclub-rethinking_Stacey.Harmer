@@ -1,0 +1,83 @@
+---
+title: "Ch12_problems_2016-11-11.Rd"
+author: "Stacey Harmer"
+date: "November 11, 2016"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 12.M3
+Frog survival model; comparing Gaussian and Cauchy distributions for the varying intercepts
+
+First, the model from the book with Gaussian distributions for intercepts
+
+```{r,  results = 'hide' }
+library(rethinking)
+data("reedfrogs")
+??reedfrogs
+d <- reedfrogs
+str(d)
+
+# get map2stan up and ready
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+# make the tank cluster variable
+d$tank <- 1:nrow(d)
+head(d)
+
+
+m12.M3.1 <- map2stan( 
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] ,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0,1)
+  ), data=d , iter=4000 , chains=4 )
+
+```
+
+Next, the same but Cauchy intstead of normal
+
+p 260: The Cauchy distributions in the model definitions are implicitly half-Cauchy, a Cauchy defined over
+the positive reals only. This is because they are applied to a parameter, usually sigma , that is strictly positive.
+Stan figures out that you meant for it to be half-Cauchy.  SO I guess I just won't specify??
+```{r,results = 'hide'  }
+m12.M3.2 <- map2stan( 
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] ,
+    a_tank[tank] ~ dcauchy( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0,1)
+  ), data=d , iter=4000 , chains=4 )
+
+```
+
+Compare the posterior means of the intercepts, a-tank, to the posterior means produced in the chapter,
+using the customary Gaussian prior. Can you explain the pattern of differences?
+```{r }
+precis(m12.M3.2,depth=2) # depth=2 displays varying effects
+plot(precis(m12.M3.1, depth =2))
+plot(precis(m12.M3.2,depth=2)) # also plot
+
+par(mfrow = c(1,2))
+plot(precis(m12.M3.1, depth =2)) # gaussian 
+plot(precis(m12.M3.2,depth=2)) # Cauchy
+```
+
+ Overall, much lower SD with cauchy (although some are really off, like 2, 7, 20, 38)
+These large SD tanks had 100% survival.  
+"at any moment in a Cauchy sampling process, you are able to draw an extreme value that overwhelms all the previous draws "
+I guess that is what is going on - with a high prop survival, can get very wrong estimate.
+
+
+## Question 12.H1
+Fr

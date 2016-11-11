@@ -10,14 +10,14 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Problems
-12E1 - Which of the following priors will produce more shrinkage in the estimates? alpha.tank ~ Normal(0,1) or alpha.tank ~ Normal(0,2)
+#Problems
+###12E1 - Which of the following priors will produce more shrinkage in the estimates? alpha.tank ~ Normal(0,1) or alpha.tank ~ Normal(0,2)
 
 b) has larger SD than a).  Stronger shrinkage (p 362) is a greater differnce between a population's empirical (real) proportion
 and the global average (alpha).  I would think that A would have greater shrinkage, as there wouldn't be as much
 variation allowed in the global average estimates as in case B.  (see figure 12.1; real data are blue)
 
-12E2 - make the following a multilevel model:
+###12E2 - make the following a multilevel model:
  y ~ binomial(1, p)
  logit(p) = alpha.group[i] + beta*x
  alpha.group ~ normal(0, 10)
@@ -30,11 +30,12 @@ variation allowed in the global average estimates as in case B.  (see figure 12.
  sigma ~ HalfCauchy(0,1)
  beta ~ normal(0, 1)
 
-12M1 - Reed frog data.  Add predation and size treatment variables to the varying intercepts model.
-Consider models with etiher size or predation, both, and both with interaction
+###12M1 - Reed frog data.  Add predation and size treatment variables to the varying intercepts model.
+Consider models with either size or predation, both, and both with interaction
 Focus on inferred variation across tanks, and why it changes with different models
 
-```{r}
+```{r, results = 'hide'}  
+# include the 'hide' for the code blocks where you don't want to print results
 library(rethinking)
 
 # get map2stan up and ready
@@ -66,7 +67,7 @@ Hmm, seems like 'big' may be a disadvantage for frogs with predators around
 
 To start, will re-run original model, and then start adding to it
 
-```{r}
+```{r, results = 'hide'}
 # make the tank cluster variable
 d$tank <- 1:nrow(d)
 head(d)
@@ -143,16 +144,16 @@ I think that would be the 'sigma' value for the global intercept (?)
 ```{r}
 #  precis(m12M1.1, depth  =2)[sigma] # fails - object not subsettable
 
-precis(m12M1.1, depth  =2) # sigma is 1.62  (intercept only)
-precis(m12M1.2, depth  =2) # sigma is 0.85  (plus predation)
-precis(m12M1.3, depth  =2) # sigma is 1.62  (plus size)
-precis(m12M1.4, depth  =2) # sigma is 0.79  (plus size plus predation)
-precis(m12M1.5, depth  =2) # sigma is 0.74 (plus predation and size and interaction)
+precis(m12M1.1, depth  =1) # sigma is 1.62  (intercept only)
+precis(m12M1.2, depth  =1) # sigma is 0.85  (plus predation)
+precis(m12M1.3, depth  =1) # sigma is 1.62  (plus size)
+precis(m12M1.4, depth  =1) # sigma is 0.79  (plus size plus predation)
+precis(m12M1.5, depth  =1) # sigma is 0.74 (plus predation and size and interaction)
 ```
 I believe this tells me that +/- predation explains a great deal of the variation between tanks.
 
 
-12M2 - now, compare the models above using WAIC
+###12M2 - now, compare the models above using WAIC
 Can you reconcile the differences in WAIC  with posterior distributions of model?
 
 ```{r}
@@ -176,7 +177,7 @@ plot(m12M1.models, SE = T, dSE = T)
 ```
 
 What if I wanted to draw samples from the posteriors and compare to real data?
-```{r}
+```{r, results = 'hide'}
 pred.m12M1.1 <- link(m12M1.1, data = d)
 dim(pred.m12M1.1) #1000 rows, 48 colums
 head(pred.m12M1.1)
@@ -246,5 +247,12 @@ p.real.mod2and4 <- ggplot() +
   facet_grid(.~pred) 
 p.real.mod2and4
 # can see models 2 and 4 are quite similar
+
+p.real.mod1and2 <- ggplot() + 
+  geom_jitter(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_jitter(data = d, colour = "red", aes(x =tank, y =propsurv_est1)) + # red for model 1
+  geom_jitter(data = d, colour = "green", aes(x =tank, y =propsurv_est2)) + # green for model 2
+  facet_grid(.~pred) 
+p.real.mod1and2
 
 ```
