@@ -1,0 +1,466 @@
+---
+title: "Ch12_problems_2016-12-01.Rmd"
+author: "Stacey Harmer"
+date: 
+output: 
+  html_document: 
+    keep_md: yes
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Problems
+
+###12M1 - Reed frog data.  Add predation and size treatment variables to the varying intercepts model.
+Consider models with either size or predation, both, and both with interaction
+Focus on inferred variation across tanks, and why it changes with different models
+
+```{r, results = 'hide'}  
+# include the 'hide' for the code blocks where you don't want to print results
+library(rethinking)
+
+# get map2stan up and ready
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+data("reedfrogs")
+d <- reedfrogs
+head(d)
+tail(d)
+summary(d)
+```
+
+I think I need to make dummy variables first.
+For pred, set no = 0 and pred = 1
+for size, set small = 0 and big = 1
+```{r}
+d$pred_d <- ifelse(d$pred == "pred", 1, 0)
+d$size_d <- ifelse(d$size == "big", 1, 0)
+```
+A quick glance at the data
+```{r}
+library(ggplot2)
+pl <- ggplot(d, aes(pred, propsurv))
+pl + geom_boxplot() + facet_grid(. ~ size) + geom_jitter(width = 0.2)
+```
+Hmm, seems like 'big' may be a disadvantage for frogs with predators around
+
+To start, will re-run original model, and then start adding to it
+
+```{r, results = 'hide'}
+# make the tank cluster variable
+d$tank <- 1:nrow(d)
+head(d)
+# fit intercept only model
+m12M1.1 <- map2stan(
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] ,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0, 1)
+  ),
+  data=d, iter = 4000, chains = 4 )
+plot(m12M1.1)
+
+
+# intercept plus predation
+m12M1.2 <- map2stan(
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] + b*pred_d,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0, 1) ,
+    b ~ dnorm(0,1)
+  ),
+  data=d, iter = 4000, chains = 4 )
+plot(m12M1.2)
+
+# intercept plus size
+m12M1.3 <- map2stan(
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] + b*size_d,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0, 1) ,
+    b ~ dnorm(0,1)
+  ),
+  data=d, iter = 4000, chains = 4 )
+plot(m12M1.3)
+
+# intercept plus size and predation 
+m12M1.4 <- map2stan(
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] + b_p*pred_d + b_s*size_d ,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0, 1) ,
+    c(b_p, b_s) ~ dnorm(0,1)
+  ),
+  data=d, iter = 4000, chains = 4 )
+plot(m12M1.4)
+
+# intercept plus size and predation and their interaction
+m12M1.5 <- map2stan(
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] + b_p*pred_d + b_s*size_d + b_ps*pred_d*size_d,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0, 1) ,
+    c(b_p, b_s, b_ps) ~ dnorm(0,1)
+  ),
+  data=d, iter = 4000, chains = 4 )
+plot(m12M1.5)
+
+```
+OK, those seemed to run OK.  
+Now how to focus on inferred variation across tanks?
+I think that would be the 'sigma' value for the global intercept (?)
+
+```{r}
+#  precis(m12M1.1, depth  =2)[sigma] # fails - object not subsettable
+
+precis(m12M1.1, depth  =1) # sigma is 1.62  (intercept only)
+precis(m12M1.2, depth  =1) # sigma is 0.85  (plus predation)
+precis(m12M1.3, depth  =1) # sigma is 1.62  (plus size)
+precis(m12M1.4, depth  =1) # sigma is 0.79  (plus size plus predation)
+precis(m12M1.5, depth  =1) # sigma is 0.74 (plus predation and size and interaction)
+```
+I believe this tells me that +/- predation explains a great deal of the variation between tanks.
+
+
+###12M2 - now, compare the models above using WAIC
+Can you reconcile the differences in WAIC  with posterior distributions of model?
+
+```{r}
+compare(m12M1.1, m12M1.2, m12M1.3, m12M1.4, m12M1.5)
+# models 2, 4, 5 seem pretty close (model 2 a bit better; since it is simpler, we should favor it)
+# while models 1 and 3 are negligible
+
+precis(m12M1.1)
+precis(m12M1.2)
+precis(m12M1.3)
+precis(m12M1.4)
+precis(m12M1.5)
+
+# comparing models 2,4 and 5, stdev for a is lowest for model 2
+
+# compare WAIC
+(m12M1.models <- compare(m12M1.1, m12M1.2, m12M1.3, m12M1.4, m12M1.5))
+par(mfrow=c(1,1))
+plot(m12M1.models, SE = T, dSE = T) 
+
+```
+
+What if I wanted to draw samples from the posteriors and compare to real data?
+```{r, results = 'hide'}
+pred.m12M1.1 <- link(m12M1.1, data = d)
+dim(pred.m12M1.1) #1000 rows, 48 colums
+head(pred.m12M1.1)
+
+# compute median intercept per tank
+d$propsurv_est1 <- apply(pred.m12M1.1, 2, median)
+
+pred.m12M1.2 <- link(m12M1.2, data = d)
+# compute median intercept per tank
+d$propsurv_est2 <- apply(pred.m12M1.2, 2, median)
+
+pred.m12M1.3 <- link(m12M1.3, data = d)
+# compute median intercept per tank
+d$propsurv_est3 <- apply(pred.m12M1.3, 2, median)
+
+pred.m12M1.4 <- link(m12M1.4, data = d)
+# compute median intercept per tank
+d$propsurv_est4 <- apply(pred.m12M1.4, 2, median)
+
+pred.m12M1.5 <- link(m12M1.5, data = d)
+# compute median intercept per tank
+d$propsurv_est5 <- apply(pred.m12M1.5, 2, median)
+
+```
+OK, now how to easily plot the real data by model?
+what if I use ggplot and I facet by predation?
+I will need to put plot over plot
+
+```{r}
+library(ggplot2)
+# first, the actual data
+pl.real <- ggplot(d, aes(tank, propsurv))
+pl.real <- pl.real + geom_point(size=2, colour="blue") 
+
+# for model 1 (intercept only; not plotted exactly as in book due to predation facet grid)
+p.real.mod1 <- ggplot() + 
+  geom_point(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_point(data = d, colour = "red", aes(x =tank, y =propsurv_est1)) + # red for model
+  facet_grid(.~pred)
+p.real.mod1
+
+p.real.mod2 <- ggplot() + 
+  geom_point(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_point(data = d, colour = "red", aes(x =tank, y =propsurv_est2)) + # red for model
+  facet_grid(.~pred)
+p.real.mod2
+# looks better
+
+p.real.mod3 <- ggplot() + 
+  geom_point(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_point(data = d, colour = "red", aes(x =tank, y =propsurv_est3)) + # red for model
+  facet_grid(.~pred)
+p.real.mod3
+# not great; about like #1
+
+p.real.mod4 <- ggplot() + 
+  geom_point(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_point(data = d, colour = "red", aes(x =tank, y =propsurv_est4)) + # red for model
+  facet_grid(.~pred)
+p.real.mod4
+# pretty good
+
+p.real.mod2and4 <- ggplot() + 
+  geom_jitter(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_jitter(data = d, colour = "red", aes(x =tank, y =propsurv_est2)) + # red for model 2
+  geom_jitter(data = d, colour = "green", aes(x =tank, y =propsurv_est4)) + # green for model 4
+  facet_grid(.~pred) 
+p.real.mod2and4
+# can see models 2 and 4 are quite similar
+
+p.real.mod1and2 <- ggplot() + 
+  geom_jitter(data = d, colour = "blue", aes(x =tank, y =propsurv )) +  #blue for real data
+  geom_jitter(data = d, colour = "red", aes(x =tank, y =propsurv_est1)) + # red for model 1
+  geom_jitter(data = d, colour = "green", aes(x =tank, y =propsurv_est2)) + # green for model 2
+  facet_grid(.~pred) 
+p.real.mod1and2
+
+```
+
+## Question 12.M3
+Frog survival model; comparing Gaussian and Cauchy distributions for the varying intercepts
+
+First, the model from the book with Gaussian distributions for intercepts
+
+```{r,  results = 'hide' }
+library(rethinking)
+data("reedfrogs")
+??reedfrogs
+d <- reedfrogs
+str(d)
+
+# get map2stan up and ready
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+# make the tank cluster variable
+d$tank <- 1:nrow(d)
+head(d)
+
+
+m12.M3.1 <- map2stan( 
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] ,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0,1)
+  ), data=d , iter=4000 , chains=4 )
+
+```
+
+Next, the same but Cauchy intstead of normal
+
+p 260: The Cauchy distributions in the model definitions are implicitly half-Cauchy, a Cauchy defined over
+the positive reals only. This is because they are applied to a parameter, usually sigma , that is strictly positive.
+Stan figures out that you meant for it to be half-Cauchy.  SO I guess I just won't specify??
+```{r,results = 'hide'  }
+m12.M3.2 <- map2stan( 
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] ,
+    a_tank[tank] ~ dcauchy( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0,1)
+  ), data=d , iter=4000 , chains=4 )
+
+```
+
+Compare the posterior means of the intercepts, a-tank, to the posterior means produced in the chapter,
+using the customary Gaussian prior. Can you explain the pattern of differences?
+```{r }
+precis(m12.M3.2,depth=2) # depth=2 displays varying effects
+plot(precis(m12.M3.1, depth =2))
+plot(precis(m12.M3.2,depth=2)) # also plot
+
+par(mfrow = c(1,2))
+plot(precis(m12.M3.1, depth =2)) # gaussian 
+plot(precis(m12.M3.2,depth=2)) # Cauchy
+```
+
+ Overall, much lower SD with cauchy (although some are really uncertain, like 2, 7, 20, 38)
+These large SD tanks had 100% survival.  
+"at any moment in a Cauchy sampling process, you are able to draw an extreme value that overwhelms all the previous draws "
+I guess that is what is going on - with a high prop survival, can get very wrong estimate.
+
+Julin: used extract.samples to get posterior estimates and then plotted. Better, I think.
+
+
+## Question 12.M4
+Fit multilevel model to the chimp data
+
+
+```{r, results = 'hide'}  
+library(rethinking)
+data(chimpanzees)
+d <- chimpanzees
+d$recipient <- NULL  # this gets rid of NA
+head(d)
+
+m12M4.ch <- map2stan(
+  alist(
+    pulled_left ~ dbinom(1, p) ,
+    logit(p) <- a + a_actor[actor] + (bp + bpC*condition)*prosoc_left ,
+    a_actor[actor] ~ dnorm(0, sigma_actor) ,
+    a ~ dnorm(0,10) ,
+    bp ~ dnorm(0,10) ,
+    bpC ~ dnorm(0,10),
+    sigma_actor ~ dcauchy(0, 1)
+  ),
+  data = d, warmup = 1000, iter = 5000, chains = 4, cores = 3)
+precis(m12M4.ch)
+# similar to above, but block now added
+# prep data, as block is reserved by Stan
+d$block_id <- d$block # name 'block' is reserved by Stan
+head(d)
+m12M4.block <- map2stan(
+  alist(
+    pulled_left ~ dbinom(1, p) ,
+    logit(p) <- a_actor[actor] + a_block[block_id] + (bp + bpC*condition)*prosoc_left ,
+    a_actor[actor] ~ dnorm(alpha, sigma_actor) ,
+    a_block[block_id] ~ dnorm(gamma, sigma_block) ,
+    c(alpha,gamma,bp, bpC) ~ dnorm(0,10) ,
+    c(sigma_actor, sigma_block) ~ dcauchy(0, 1)
+  ),
+  data = d, warmup = 1000, iter = 5000, chains = 4, cores = 3)
+```
+really didn' tlike the above model
+compare the posterior distributions of the above
+```{r}
+precis(m12M4.block) # Rhat values not 1! n_eff low for alpha and gamma
+# and look at those huge intervals for alpha and gamma
+precis(m12M4.ch)
+compare(m12M4.ch, m12M4.block)
+
+```
+I think problem has to do with the fact that htere is not a grand mean a parameter (p 373)
+in my second model.  
+
+## Question 12.H1
+Bengali women, in district, use.contraception, and urban
+```{r}
+# get data, sort out district variable
+library(rethinking)
+data("bangladesh")
+d <- bangladesh
+head(d)
+sort(unique(d$district))  # need to make ths good index varaible (continuous)
+d$district_id <- as.integer(as.factor(d$district))
+sort(unique(d$district_id))  # ok
+
+# and get ride of . in the colnames
+
+colnames(d) <- sub(".","_",colnames(d),fixed=TRUE)
+
+```
+
+Now I want to predict contraception use clstered by district_id  
+
+traditional fixed-effect model using dummy variables for district first
+
+```{r}
+m12H1.1 <- map2stan(alist(
+  use_contraception ~ dbinom(1,p),
+  logit(p) <- a[district_id],
+  a[district_id] ~ dnorm(0,5)),
+  data=d,
+  chains = 4)
+plot(m12H1.1)
+precis(m12H1.1, depth=2)
+```
+
+And now multilevel model with varying intercepts for district
+
+```{r}
+m12H1.2 <- map2stan(alist(
+  use_contraception ~ dbinom(1,p),
+  logit(p) <- a_district[district_id],
+  a_district[district_id] ~ dnorm(a,sigma_d),
+  a ~ dnorm(0,5) ,
+  sigma_d ~ dcauchy(0, 1)),
+  data=d,
+  chains = 4)
+  
+plot(m12H1.2)
+precis(m12H1.2, depth=2)
+```
+
+Now plot district ID vs proportion using contraception on vertical
+
+```{r}
+library(reshape2)
+
+pred.df <- data.frame(district_id= unique(d$district_id))
+link.vary <- link(m12H1.2, data = pred.df, n= 4000)
+
+pred.df$est.vary.link <- apply(link.vary, 2, mean)
+pred.df$est.vary.coef <- logistic(coef(m12H1.2)[1:60])
+
+post.vary <- extract.samples(m12H1.2)$a_district
+
+pred.df$est.vary.extract.samples <- logistic(apply(post.vary, 2, mean))
+cor(pred.df[, 2:4])
+
+```
+
+not clear why we did this 3 differnet ways
+
+```{r}
+plot.df <- data.frame(
+  district_id=1:60,
+  fixed=logistic(coef(m12H1.1)),
+  varying=logistic(coef(m12H1.2)[1:60]),
+  observed=tapply(d$use_contraception,d$district_id,function(x) sum(x)/length(x)))
+plot.df.m <- melt(plot.df,id.var="district_id")
+```
+
+```{r}
+pl <- ggplot(plot.df.m,aes(x=district_id,y=value,color=variable,shape=variable))
+pl+geom_point(size=3)+geom_hline(yintercept = logistic(coef(m12H1.2)["a"]))
+```
+Shrinkage with the varying intercept model.  In all cases the fixed model
+fits data better than varying model.  
+
+## Question 12.H2
+Trolley data
+```{r}
+data("Trolley")
+d <- Trolley
+head(d)
+summary(d)
+```
+Define and fit varying intercepts model for these data; cluster by id
+include action, intention, contact as ordinary terms
+This is an ordered categorical outcome; see p 339 for more help
+
+```{r}
+#first, get rid of name 'case'
+colnames(d)[1] <- "case_id"
+
+```
+
+
+

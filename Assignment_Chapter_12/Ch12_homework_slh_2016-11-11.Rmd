@@ -73,7 +73,7 @@ plot(precis(m12.M3.1, depth =2)) # gaussian
 plot(precis(m12.M3.2,depth=2)) # Cauchy
 ```
 
- Overall, much lower SD with cauchy (although some are really off, like 2, 7, 20, 38)
+ Overall, much lower SD with cauchy (although some are really uncertain, like 2, 7, 20, 38)
 These large SD tanks had 100% survival.  
 "at any moment in a Cauchy sampling process, you are able to draw an extreme value that overwhelms all the previous draws "
 I guess that is what is going on - with a high prop survival, can get very wrong estimate.
