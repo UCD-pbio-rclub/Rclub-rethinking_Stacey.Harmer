@@ -354,10 +354,11 @@ precis(m12M4.block) # Rhat values not 1! n_eff low for alpha and gamma
 # and look at those huge intervals for alpha and gamma
 precis(m12M4.ch)
 compare(m12M4.ch, m12M4.block)
+plot(precis(m12M4.block))
 
 ```
 I think problem has to do with the fact that htere is not a grand mean a parameter (p 373)
-in my second model.  
+in my second model.  (Julin gave a better explanation)
 
 ## Question 12.H1
 Bengali women, in district, use.contraception, and urban
