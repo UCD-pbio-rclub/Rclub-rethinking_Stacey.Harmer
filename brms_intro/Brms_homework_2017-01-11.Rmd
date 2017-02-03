@@ -1,0 +1,155 @@
+---
+title: "brms_intro_homework"
+author: "Stacey Harmer"
+date: "January 11, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(rethinking)
+
+# get map2stan up and ready
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+library(brms)
+library(ggplot2)
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+```
+
+# Question 1 
+Fit model 10.9 (R code 10.28) with brms; compare to map2stan version.
+ Test whether the coefficient for gender is different from 0 in the brms model.
+This is hte grad school admission data (see page 304)
+male vs female admissions.  
+
+```{r cars}
+data("UCBadmit")
+d <- UCBadmit
+d
+# make male numeric
+d$male <- ifelse( d$applicant.gender=="male" , 1 , 0 ) 
+d
+
+# make index for department
+d$dept_id <- coerce_index( d$dept )
+
+# model with unique intercept for each dept
+# model with male difference as well
+m10.9 <- map(
+  alist(
+    admit ~ dbinom( applications , p ) ,
+    logit(p) <- a[dept_id] + bm*male ,
+    a[dept_id] ~ dnorm(0,10) ,
+    bm ~ dnorm(0,10)
+  ) , data=d )
+summary(m10.9)
+precis(m10.9, depth = 2)
+```
+
+Now make same model with brms
+```{r}
+d
+m10.9.brms <- brm(admit | trials(applications) ~ dept + male,
+                  family = "binomial",
+                  prior=set_prior("normal(1,10)", class = "b"),
+                  data = d
+                  )
+summary(m10.9.brms)
+plot(m10.9.brms, ask = FALSE)
+
+```
+
+Compare the two models
+```{r}
+waic(m10.9, m10.9.brms)
+# doesn't work.  not compare, not waic, not loo
+# but visual inspection of the parameter estimates shows they are quite similar
+precis(m10.9, depth = 2)
+summary(m10.9.brms)
+
+```
+
+Now see if gender coeff is really different from 0
+
+```{r}
+hypothesis(m10.9.brms, "male = 0")
+plot(hypothesis(m10.9.brms, "male = 0"))
+# it could easily be zero.
+```
+
+# Question 2
+
+Refit models 12.1 and 12.2 (Rcode 12.2 and 12.3) with brms
+
+Tadpole data.  See page 357.  Multilevel model, estimating boht intercept for each tanks
+and variation among tanks
+```{r}
+data("reedfrogs")
+d <- reedfrogs
+head(d)
+tail(d)
+```
+
+ first, for model 12.1
+ 
+ The map2stan model is:
+ m12.1 <- map2stan(
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] ,
+    a_tank[tank] ~ dnorm( 0 , 5 )
+  ),
+  data=d )
+
+So now make a brms model; this again is binomial.  Use a 0 to indicate separate intercept for each level
+```{r}
+d$tank <- 1:nrow(d)
+d$tank <- as.factor(d$tank) # didn't work when tank was a number
+head(d)  
+m12.1.brms <- brm(surv | trials(density) ~ 0 + tank, 
+                  family = "binomial",
+                  prior = set_prior("normal(0,5)", class = "b"),
+                  data = d
+                  )
+summary(m12.1.brms)
+plot(m12.1.brms, ask = FALSE) #  one b value per row
+
+```
+
+And now for 12.2; here, want to have priors both for tank and for the SD of tank
+
+m12.2 <- map2stan( 
+  alist(
+    surv ~ dbinom( density , p ) ,
+    logit(p) <- a_tank[tank] ,
+    a_tank[tank] ~ dnorm( a , sigma ) ,
+    a ~ dnorm(0,1) ,
+    sigma ~ dcauchy(0,1)
+  ), data=d , iter=4000 , chains=4 )
+
+Transforms into random effect model now in brms
+```{r}
+m12.2.brms <- brm(surv | trials(density) ~ 0 + (1|tank), 
+                  family = "binomial",
+                  prior = c(set_prior("normal(0,1)", class = "Intercept"),
+                  set_prior("cauchy(0,1)", class = "sd")), #half cauchy prior for sd
+                  data = d
+                  )
+summary(m12.2.brms)
+plot(m12.2.brms, ask = FALSE)
+# does tank have to be a number now?
+
+d$tank <- as.numeric(d$tank)  # then re-run the above model
+summary(m12.2.brms)
+plot(m12.2.brms, ask = FALSE)
+# appears to have the tank esitmates but it doesn't report them to me
+?ranef  # to extract random effects
+ranef(m12.2.brms) # there they are.  Doesn't care if tank is a factor or a number
+```
+
+# Question 3
+Use both brms and map2stan to fit a model for intleng as a function of species, trt and their interaction, and include shelf as a random effect.

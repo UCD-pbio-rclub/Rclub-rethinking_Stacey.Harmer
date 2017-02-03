@@ -129,12 +129,14 @@ mTom.4 <- map2stan(
     sigma_acs ~ dnorm(0, 10),
     sigma_acs ~ dnorm(0, 10),
     sigma ~ dnorm(0, 10)), data=tom.trim, iter=5000, warmup=2000, chains =2)
+# Julin: set alpha to be about the mean;
+# set sigma to use dcauchy distribution.  
+#  any maybe center the beta on a positive number also; perhaps 20?  
 
 plot(mTom.4) 
 precis(mTom.4, depth=2) # n-eff better now
 par(mfrow = c(1,1))
 plot(precis(mTom.4, depth = 2))
-# 
 
 ```
 compare these 4 models
@@ -145,8 +147,11 @@ compare(mTom.1, mTom.2, mTom.3, mTom.4)
 ```
 As I suspected based on the n_eff values, model 4 is much preferred.  
 
+NOTE FROM CLASS - need to think about the priors harder!  Should have made prior for
+shade treatment positive (say, 20) and let the shelf effect prior be 0.  
 
-
+LOOK AT PARAMETER estimates as well - does it makes sense that shelf
+has larger effect than species ?!?!?!
 
 ## Problem 2: Smoking deaths among doctors
 
@@ -170,11 +175,78 @@ breslow$n <- as.integer(breslow$n)
 
 before you can analyze the problem 2 data
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+
+data("breslow",package = "boot")
+help("breslow",package ="boot")
+breslow
+breslow$n <- as.integer(breslow$n)
+str(breslow)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Analyse this data set to determine the posterior probability that smoking increases death by coronary artery disease
+y is the number of deaths; I think I want to convert to proportions
+so number of deaths (y/n)
+
+Notes in class: NOPE, I didn't need to do that.
+
+```{r}
+breslow$fxn_death <- breslow$y/breslow$n
+
+mDoc.1 <- map2stan(
+  alist(
+    y ~ dbinom(n, p),
+    logit(p) <- a + beta_smoke*smoke,
+    a ~ dnorm(0, 5),
+    beta_smoke ~ dnorm(0, 5)), 
+  data=breslow, iter=5000, warmup=2000, chains =2)
+
+plot(mDoc.1)
+precis(mDoc.1, depth=2)
+par(mfrow=c(1,1))
+plot(precis(mDoc.1, depth = 2))
+
+```
+Note the above numbers are on teh log odds score
+```{r}
+logistic(-5.96)
+#  0.002573273 prob of dying if not a smoker
+
+logistic(-5.96 + .55)
+# 0.004451734 prob of dying if you smoke
+# difference
+0.004451734/0.002573273 # = 1.73  so almost twice as likely to die of CV disease if you smoke  (this is per year)
+
+```
+
+Analyze data to see if age increases death by coronary artery disease
+
+age : Julin made it an index
+
+```{r}
+breslow$age_id <- coerce_index(breslow$age)
+
+mDoc.2 <- map2stan(
+  alist(
+    y ~ dbinom(n, p),
+    logit(p) <- alpha_age[age_id],
+    alpha_age[age_id] ~ dnorm(0, 5) ), 
+  data=breslow, iter=5000, warmup=2000, chains =2)
+
+plot(mDoc.2)
+precis(mDoc.2, depth=2)
+par(mfrow=c(1,1))
+plot(precis(mDoc.2, depth = 2)) 
+
+```
+
+and that there is an interaction between age and smoking.
+```{r}
+
+```
+
+
+
 
 ##Problem 3: Cane Sugar
 

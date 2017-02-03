@@ -1,0 +1,361 @@
+---
+title: "Ch13_homework_1&2"
+author: "Stacey Harmer"
+date: "January 22, 2017"
+output: 
+  html_document: 
+    keep_md: yes
+---
+Problems
+13E1
+13E2
+13M1
+13M2
+13M3
+13H1
+
+remember that I can use ```{r, results='hide'} if I want to keep things shorter
+
+# 13E1
+model to which I am to add varying slopes on the predictor x
+This should now look like formula on page 400.  I will write R code version below:
+
+value ~ dnorm(mu, sigma),
+mu <- a_group[group] + b_group[group]*x
+c(a_group, b_group)[group] ~ dmwnorm2(c(a,b), sigma_group, Rho),
+a ~ dnorm(0, 10),
+b ~ dnorm(0, 1),
+sigma_group ~ dcauchy(0,2),
+sigma ~ dcauchy(0,2),
+Rho ~ dlkjcorr(2)
+
+#13E2  When might varying intercepts be positively correlated with varying slopes?
+
+OK, think about grad admissions example.  Let's imagine a not-very-selective dept: alpha is high
+And that the less selective the department, the more likely a man is to be admitted
+
+Then, beta would be positive (because logit/logistic relationship) - see graphs p 309 and 401
+
+# 13M1 Repeat robot cafe simulation, but with rho set to zero (no correlation b/t intercept and slope)
+
+```{r}
+# get map2stan up and ready
+library(rethinking)
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+```
+
+Now input the data used in model m13.1, but with rho = 0
+```{r}
+a <- 3.5
+b <- (-1)
+sigma_a <- 1
+sigma_b <- 0.5
+rho <- 0  # but this time rho is 0, so no correlation between intercept and slopes
+
+# now make 2D multivariate Gaussian distribution:
+Mu <- c(a,b) # vector of the 2 means
+
+# build matrix:
+cov_ab <- sigma_a*sigma_b*rho
+Sigma <- matrix(c(sigma_a^2, cov_ab, cov_ab, sigma_b^2), ncol =  2) 
+  #the Sigma has rho of 0 folded in from the cov_ab value
+
+N_cafes <- 20
+library(MASS)
+library(rethinking)
+set.seed(5)
+vary_effects <- mvrnorm( N_cafes , Mu , Sigma )
+
+a_cafe <- vary_effects[, 1]
+b_cafe <- vary_effects[, 2]
+
+# now simulate observations
+N_visits <- 10
+afternoon <- rep(0:1, N_visits*N_cafes/2) # five AM, five PM visits to each cafe
+cafe_id <- rep(1:N_cafes, each=N_visits)
+mu <- a_cafe[cafe_id] + b_cafe[cafe_id] * afternoon  # expected mean wait times
+sigma <- 0.5
+wait <- rnorm(N_visits*N_cafes, mu, sigma)
+d.m13M1 <- data.frame(cafe = cafe_id, afternoon = afternoon, wait = wait)
+
+```
+
+And now run the same model as before
+```{r}
+
+m13.M1 <- map2stan(
+  alist(
+    wait ~ dnorm( mu , sigma ),
+    mu <- a_cafe[cafe] + b_cafe[cafe]*afternoon,
+    c(a_cafe,b_cafe)[cafe] ~ dmvnorm2(c(a,b),sigma_cafe,Rho), 
+    # sample from multivariate Gaussian probability density
+    a ~ dnorm(0,10),
+    b ~ dnorm(0,10),
+    sigma_cafe ~ dcauchy(0,2),
+    sigma ~ dcauchy(0,2),
+    Rho ~ dlkjcorr(2)
+  ) ,
+  data=d.m13M1 ,
+  iter=5000 , warmup=2000 , chains=2 )
+
+```
+
+Check my model
+```{r}
+plot(m13.M1)
+
+precis(m13.M1, depth =2)
+# kind of weird Rho values
+post.m13.M1 <- extract.samples(m13.M1)
+par(mfrow= c(1,1))
+dens(post.m13.M1$Rho[, 1, 2 ]) # one value of index
+str(post.m13.M1)
+
+# now there is a postiive value for covariance b/t intercept and slope
+```
+I'm confused.  Why is there now a positive Rho found?
+I guess that correlation (rho) != covariance
+covariance = sd of intercept * sd of slope * correlation
+
+```{r}
+str(d.m13M1)
+# want 2 vectors.  d$wait when afternon = 0 vs afternoon =1
+plot(subset(d.m13M1, afternoon == 0)$wait, subset(d.m13M1, afternoon == 1)$wait)
+cor.test(subset(d.m13M1, afternoon == 0)$wait, subset(d.m13M1, afternoon == 1)$wait)
+```
+WAit and see if Juln has this issue
+
+# 13M2 Fit multilevel model to simulated cafe data.
+I will use the simulated data given in the text.
+```{r}
+a <- 3.5 # average morning wait time 
+b <- (-1) # average difference afternoon wait time
+sigma_a <- 1 # std dev in intercepts
+sigma_b <- 0.5 # std dev in slopes
+rho <- (-0.7) # correlation between intercepts and slopes
+
+Mu <- c( a , b )
+cov_ab <- sigma_a*sigma_b*rho
+Sigma <- matrix( c(sigma_a^2,cov_ab,cov_ab,sigma_b^2) , ncol=2 )
+N_cafes <- 20
+library(MASS) 
+set.seed(5) # used to replicate example
+vary_effects <- mvrnorm( N_cafes , Mu , Sigma )
+
+a_cafe <- vary_effects[,1] 
+b_cafe <- vary_effects[,2]
+
+N_visits <- 10 
+afternoon <- rep(0:1,N_visits*N_cafes/2)
+cafe_id <- rep( 1:N_cafes , each=N_visits )
+
+mu <- a_cafe[cafe_id] + b_cafe[cafe_id]*afternoon
+sigma <- 0.5 # std dev within cafes
+wait <- rnorm( N_visits*N_cafes , mu , sigma )
+d <- data.frame( cafe=cafe_id , afternoon=afternoon , wait=wait )
+
+```
+
+check correlation in this dataframe
+```{r}
+str(d)
+cor.test(subset(d, afternoon == 0)$wait, subset(d, afternoon == 1)$wait)
+plot(subset(d, afternoon == 0)$wait, subset(d, afternoon == 1)$wait)
+# it is positive, and of 0.71
+```
+Run model from the book
+```{r}
+m13.1 <- map2stan(
+  alist(
+    wait ~ dnorm( mu , sigma ),
+    mu <- a_cafe[cafe] + b_cafe[cafe]*afternoon,
+    c(a_cafe,b_cafe)[cafe] ~ dmvnorm2(c(a,b),sigma_cafe,Rho),
+    a ~ dnorm(0,10),
+    b ~ dnorm(0,10),
+    sigma_cafe ~ dcauchy(0,2),
+    sigma ~ dcauchy(0,2),
+    Rho ~ dlkjcorr(2)
+) ,
+data=d ,
+iter=5000 , warmup=2000 , chains=2 )
+precis(m13.1, depth=2)
+```
+
+And confirm I get same post$Rho as in text
+
+```{r}
+post <- extract.samples(m13.1)
+dens(post$Rho[, 1,2]) # yes, as in book
+```
+Now fit a new model, not multivariate prior
+
+```{r}
+
+m13.M2 <- map2stan(
+  alist(
+    wait ~ dnorm( mu , sigma ),
+    mu <- a_cafe[cafe] + b_cafe[cafe]*afternoon,
+    a_cafe[cafe] ~ dnorm(alpha, sigma_a),    
+    b_cafe[cafe] ~ dnorm(beta, sigma_b),
+    c(alpha,beta) ~ dnorm(0,10),
+    c(sigma, sigma_a, sigma_b) ~ dcauchy(0,1)
+) ,
+data=d ,
+iter=5000 , warmup=2000 , chains=2 )
+
+```
+check model
+```{r}
+plot(m13.M2)
+precis(m13.M2, depth = 2) #sigma_b is very low n_eff
+
+compare(m13.1, m13.M2)
+```
+these models aren't much different.  
+I guess sharing covariance didn't really help the fit very much in this case.
+But why not?
+
+#13M3 - revisit UCBadmit data.  now use non-centered parameterization
+
+Start with the model from the text
+
+```{r}
+library(rethinking)
+data("UCBadmit")
+d <- UCBadmit
+d$male <- ifelse(d$applicant.gender == "male", 1, 0)
+d$dept_id <- coerce_index(d$dept)
+
+#  Varying slopes model
+m13.3 <- map2stan(
+  alist(
+    admit ~ dbinom( applications , p ),
+    logit(p) <- a_dept[dept_id] +
+      bm_dept[dept_id]*male,
+    c(a_dept,bm_dept)[dept_id] ~ dmvnorm2( c(a,bm) , sigma_dept , Rho ),
+    a ~ dnorm(0,10),
+    bm ~ dnorm(0,1),
+    sigma_dept ~ dcauchy(0,2),
+    Rho ~ dlkjcorr(2)
+  ) ,
+  data=d , warmup=1000 , iter=5000 , chains=4 , cores=3 )
+
+precis(m13.3, depth=2)
+
+```
+Now repeat, but with non-centered parametrization.
+I think that this means use LKJcorr(1), so that prior is flat
+```{r}
+m13M3 <- map2stan(
+  alist(
+    admit ~ dbinom( applications , p ),
+    logit(p) <- a_dept[dept_id] +
+      bm_dept[dept_id]*male,
+    c(a_dept,bm_dept)[dept_id] ~ dmvnorm2( c(a,bm) , sigma_dept , Rho ),
+    a ~ dnorm(0,10),
+    bm ~ dnorm(0,1),
+    sigma_dept ~ dcauchy(0,2),
+    Rho ~ dlkjcorr(1)
+  ) ,
+  data=d , warmup=1000 , iter=5000 , chains=4 , cores=3 )
+plot(m13M3) # seems OK
+precis(m13.3, depth=2)
+precis(m13M3, depth = 2)
+# this is problematic.  Several Rhat greater htan 1; many very small n_eff values
+```
+
+# 13H1 - Bangladesh fertility data
+```{r}
+library(rethinking)
+data("bangladesh")
+d.B <- bangladesh
+str(d.B) 
+head(d.B)
+sort(unique(d.B$district)) # missing 54
+d.B$district_id <- as.integer(as.factor(d.B$district))
+sort(unique(d.B$district_id))
+
+# and get ride of . in the colnames
+
+colnames(d.B) <- sub(".","_",colnames(d.B),fixed=TRUE)
+```
+
+I want to predict use_contraception, using district_id (intercept) and urban (slope) as predictors
+```{r}
+
+m13H1 <- map2stan(
+  alist(
+    use_contraception ~ dbinom(1,p),
+    logit(p) <- a_district[district_id] + b_district[district_id]*urban,
+    c(a_district,b_district)[district_id] ~ dmvnorm2( c(a, b), sigma_district, Rho),
+    a ~ dnorm(0,5) ,
+    b ~ dnorm(0,1),
+    sigma_district ~ dcauchy(0,1),
+    Rho ~ dlkjcorr(2)),
+    data=d.B, warmup=1000 , iter=5000 ,  cores=3,
+    chains = 4)
+  
+```
+
+Check the fit first
+```{r}
+plot(m13H1)
+precis(m13H1, depth = 2)  # seems fine
+par(mfrow = c(1,1))
+plot(precis(m13H1, pars=c("a_district", "b_district"), depth=2))
+# very messy
+# Rho is -.66
+```
+now look at correlation between intercepts and slope
+"plot mean varying effect estimates for intercept and slope, by district"
+
+```{r}
+library(ggplot2)
+d.sum <- precis(m13H1, depth =2)
+str(d.sum)
+summary(d.sum[1])
+
+p <- ggplot(precis(m13H1, depth =2), aes(a_district, b_district))
+p + geom_point()
+# this doesn't work
+```
+maybe extract samples from posterior and deal with that?
+```{r}
+d.bang.sam <- extract.samples(m13H1)
+str(d.bang.sam)
+head(d.bang.sam)
+# now I can use apply (I think) to get mean values for a and b by district
+
+summary(d.bang.sam$a_district) # 60 values
+summary(d.bang.sam$a) # one value
+
+a_district_mean <- apply( d.bang.sam$a_district , 2 , mean )
+a_mean <- mean(d.bang.sam$a)
+
+b_district_mean <- apply( d.bang.sam$b_district , 2 , mean )
+b_mean <- mean(d.bang.sam$b)
+
+# calculate the actual b and a values for each district, by adding.  
+a_district_mean_adj <- a_district_mean + a_mean
+b_district_mean_adj <- b_district_mean + b_mean
+plot(a_district_mean_adj, b_district_mean_adj)
+# see that higher (less neg) alpha means beta close to 0
+# and very negative alpha means larger, more positive beta
+```
+
+Remember model:
+ use_contraception ~ dbinom(1,p),
+    logit(p) <- a_district[district_id] + b_district[district_id]*urban,
+    
+```{r}
+#Compare p if alpha -.5 vs -1.5
+logistic(-.5) # 0.3775407
+logistic(-1.5) # 0.1824255
+# so more neg alpha means more likely to use contraception
+
+```
+I interpret this as:  in some districts, urban vs rural doesn't affect contraceptive use much
+And in some districts, urban vs rural has a really large effect.  
+Positive beta means urban woman much more likely than rural woman to use contraception

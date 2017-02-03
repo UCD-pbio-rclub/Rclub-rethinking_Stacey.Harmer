@@ -1,0 +1,90 @@
+---
+title: "Ch13, homework 2"
+author: "Stacey Harmer"
+date: "February 2, 2017"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+Problems 13E3 and 13M3
+
+# 13 E3
+When can a varying slopes model have fewer effective parameters than the corresponding model with unpooled slopes?
+
+see page 406-407.  when the mean slopes are small, this indicates aggressive shrinkage.  In other words, in such models, outliers are being pulled in towards the intercept pretty strongly.  Then these outliers are modeled as not being as different from intercepts.
+
+# 13 M3
+revisit varying slopes model for UCBadmit data, using NC parameterizaiton this time
+
+```{r}
+# get map2stan up and ready
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+```
+
+```{r}
+library(rethinking)
+data("UCBadmit")
+d <- UCBadmit
+d$male <- ifelse(d$applicant.gender == "male", 1, 0)
+d$dept_id <- coerce_index(d$dept)
+head(d)
+
+#  Varying slopes model
+m13.3 <- map2stan(
+  alist(
+    admit ~ dbinom( applications , p ),
+    logit(p) <- a_dept[dept_id] +
+      bm_dept[dept_id]*male,
+    c(a_dept,bm_dept)[dept_id] ~ dmvnorm2( c(a,bm) , sigma_dept , Rho ),
+    a ~ dnorm(0,10),
+    bm ~ dnorm(0,1),
+    sigma_dept ~ dcauchy(0,2),
+    Rho ~ dlkjcorr(2)
+  ) ,
+  data=d , warmup=1000 , iter=5000 , chains=4 , cores=3 )
+
+precis(m13.3, depth=2)
+
+```
+Now repeat, but with non-centered parametrization.
+And move the means into the linear models (not inside the prior)
+
+```{r}
+
+m13.3NC <- map2stan(
+  alist(
+    admit ~ dbinom( applications , p ),
+    logit(p) <- a + a_dept[dept_id] +
+      bm + bm_dept[dept_id]*male,
+    c(a_dept,bm_dept)[dept_id] ~ dmvnormNC( sigma_dept , Rho ),
+    a ~ dnorm(0,10),
+    bm ~ dnorm(0,1),
+    sigma_dept ~ dcauchy(0,2),
+    Rho ~ dlkjcorr(2)
+  ) ,
+  data=d , warmup=1000 , iter=5000 , chains=4 , cores=3 )
+
+precis(m13.3NC, depth=2)
+
+```
+
+And now let's systematically compare the n_eff
+
+```{r}
+# extract n_eff for each model
+neff_orig <- precis(m13.3, 2)@output$n_eff
+neff_NC <- precis(m13.3NC, 2)@output$n_eff
+
+```
+And now plot them
+```{r}
+
+boxplot(list('m13.3.orig' = neff_orig, 'm13.3.NC' = neff_NC),
+        ylab = "effective samples", xlab = "model")
+```
+Surprise!   NC is not better and in fact may be worse.  Certainly more variable
+
