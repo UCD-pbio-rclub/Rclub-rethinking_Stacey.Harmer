@@ -1,0 +1,105 @@
+---
+title: "Ch 13 homework, last section"
+author: "Stacey Harmer"
+date: "February 9, 2017"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+#13M4
+use WAIC to compare Gaussian process modeling of Oceanic tools to models fit for same 
+data in chapter 10.  Think about effective # of parameters
+
+First, models from Ch 10.
+
+```{r}
+
+library(rethinking) 
+data(Kline)
+d.Kline <- Kline
+d.Kline
+
+
+```
+model total tools as output
+```{r}
+d.Kline$log_pop <- log(d$population)
+d.Kline$contact_high <- ifelse( d$contact=="high" , 1 , 0 )
+
+```
+model includes interaction between log_pop and contact rate
+WHY IS POISSON A GOOD MODEL IN THE FIRST PLACE?
+
+```{r}
+m10.10 <- map( 
+alist(
+total_tools ~ dpois( lambda ),
+log(lambda) <- a + bp*log_pop +
+bc*contact_high + bpc*contact_high*log_pop,
+a ~ dnorm(0,100),
+c(bp,bc,bpc) ~ dnorm(0,1)
+),
+data=d.Kline )
+```
+
+now the other models
+First, no interaction
+```{r}
+# no interaction 10.45
+m10.11 <- map(
+alist(
+total_tools ~ dpois( lambda ),
+log(lambda) <- a + bp*log_pop + bc*contact_high,
+a ~ dnorm(0,100),
+c(bp,bc) ~ dnorm( 0 , 1 )), data=d.Kline )
+
+```
+ then, no contact rate or no log pop
+ 
+ 
+```{r}
+# no contact rate 
+m10.12 <- map(
+alist(
+total_tools ~ dpois( lambda ),
+log(lambda) <- a + bp*log_pop,
+a ~ dnorm(0,100),
+bp ~ dnorm( 0 , 1 )), data=d.Kline)
+
+# no log-population
+m10.13 <- map(
+alist(
+total_tools ~ dpois( lambda ),
+log(lambda) <- a + bc*contact_high,
+a ~ dnorm(0,100),
+bc ~ dnorm( 0 , 1 )), data=d.Kline )
+```
+
+```{r}
+# intercept only 
+m10.14 <- map(
+alist(
+total_tools ~ dpois( lambda ),
+log(lambda) <- a,
+a ~ dnorm(0,100)), data=d.Kline)
+
+# compare all using WAIC
+# adding n=1e4 for more stable WAIC estimates
+# will also plot the comparison
+( islands.compare <- compare(m10.10,m10.11,m10.12,m10.13,m10.14,n=1e4) )
+plot(islands.compare)
+```
+
+And the model from Ch 13
+```{r}
+
+```
+ Use the WAIC function to compare the models
+ 
+ 
+ 
+ # next problem
+ ?Oxboys
+ ??dist
+ 

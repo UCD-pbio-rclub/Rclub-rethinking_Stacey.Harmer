@@ -1,0 +1,412 @@
+---
+title: "Ch14_homework"
+author: "Stacey Harmer"
+date: "March 9, 2017"
+output: 
+  html_document: 
+    keep_md: yes
+---
+```{r}
+library(rethinking) 
+# get map2stan up and ready
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+```
+
+### 14E1. Rewrite the Oceanic tools model (from Chapter 10) below so that it assumes measured error
+on the log population sizes of each society.
+
+given model:
+
+total_tools ~ dpois( lambda ),
+log(lambda) <- a + bp*log_pop,
+a ~ dnorm(0,10),
+bp ~ dnorm( 0 , 1 )
+
+revised model:
+
+total_tools ~ dpois( lambda ),
+log(lambda) <- a + bp*log_pop_est,
+log_pop_obs ~ dnorm(log_pop_est, pop_sd)
+a ~ dnorm(0,10),
+bp ~ dnorm( 0 , 1 )
+
+(I don't list a prior for pop_sd, but I don't think I have to . . .)
+
+### 14E2. Rewrite the same model so that it allows imputation of missing values for log population.
+
+given model:
+
+total_tools ~ dpois( lambda ),
+log(lambda) <- a + bp*log_pop,
+a ~ dnorm(0,10),
+bp ~ dnorm( 0 , 1 )
+
+new model:
+
+total_tools ~ dpois( lambda ),
+log(lambda) <- a + bp*log_pop,
+log_pop ~ dnorm(mu, sigma_pop)
+a ~ dnorm(0,10),
+bp ~ dnorm( 0 , 1 )
+mu ~ dnorm(10, 2)
+sigma_pop ~ dcauchy(0,1)
+
+try to decide on good prior for log_pop
+```{r}
+library(rethinking) 
+data(Kline)
+Oc <- Kline
+Oc
+Oc$log_pop <- log(Oc$population)
+mean(Oc$log_pop) # 9
+```
+Try to update the package
+
+```{r}
+library(devtools)
+install_github("rmcelreath/rethinking",ref="Experimental")
+```
+
+
+
+#14M1.  Using the mathematical form of the imputation model in the chapter, explain what is being
+assumed about how the missing values were generated
+
+In section 14.2.1 (p 432 - ), teh missing value is for neocortex.  It is assumed that these missing values are random relative to the reported values.  They are modeled as being from a normal distribution, with a SD drawn from half Cauchy.  so we are assuming Gaussian uncertainty for each missing value.  
+
+# 14M2.  Primate milk data.  Use imputation on neocortex data so all data are included.  compare to model where we threw out data
+
+Chapter 6 model:
+
+```{r}
+library(rethinking) 
+data(milk)
+milk <- milk
+milk$neocortex_prop <- milk$neocortex.perc / 100
+milk$logmass <- log(milk$mass)
+head(milk)
+```
+
+And make a version with complete cases only (as done in chapter 6)
+
+```{r}
+milk.cc <- milk[ complete.cases(milk$neocortex_prop) , ]
+```
+
+Chapter 6, WAIC omodel comparisons; see models on page 197
+Guess I'll do these using map2stan
+
+First, simplify dataframe.  only need kcal.per.g,  neocortex_prop, logmass
+```{r}
+head(milk.cc)
+milk.cc.simple <- milk.cc[, c(1:3,9,10)]
+colnames(milk.cc.simple)[3] <- "kcal_per_g"
+summary(milk.cc.simple)
+```
+
+
+```{r}
+a.start <- mean(milk.cc.simple$kcal_per_g)
+sigma.start <- log(sd(milk.cc.simple$kcal_per_g))
+head(milk.cc.simple )
+
+# model - intercept only
+m6.11 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a,
+    a ~ dnorm(0,10),
+    sigma ~ dcauchy(0, 1) 
+) ,
+  data=milk.cc.simple, iter = 1e4, chains =2 )
+precis(m6.11)
+```
+ next, intercept and slope*neocortex
+```{r}
+m6.12 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a + bn*neocortex_prop,
+    a ~ dnorm(0,10),
+    sigma ~ dcauchy(0, 1),
+    bn ~ dnorm(0,10)
+) ,
+  data=milk.cc.simple, iter = 1e4, chains =2 )
+precis(m6.12)
+```
+
+Next, add loggmass to equation
+```{r}
+m6.13 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a + bm*logmass,
+    a ~ dnorm(0,10),
+    sigma ~ dcauchy(0, 1),
+    bm ~ dnorm(0,10)
+) ,
+  data=milk.cc.simple, iter = 1e4, chains =2 )
+precis(m6.13)
+
+```
+
+Last, model with both neocortex and mass
+```{r}
+
+m6.14 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a + bm*logmass + bn*neocortex_prop,
+    a ~ dnorm(0,10),
+    sigma ~ dcauchy(0, 1),
+    bm ~ dnorm(0,10),
+    bn ~ dnorm(0,10)
+) ,
+  data=milk.cc.simple, iter = 1e4, chains =2 )
+precis(m6.14)
+
+```
+
+And then compare all to each other using WAIC
+```{r}
+(milk.models <- compare(m6.11, m6.12, m6.13, m6.14))
+```
+The last model is hte clear winner, just as in chapter 6
+
+OK, now repeat but this time impute the neocortext data
+
+First, simplify dataframe.  only need kcal.per.g,  neocortex_prop, logmass
+```{r}
+head(milk)
+milk.simple <- milk[, c(1:3,9,10)]
+colnames(milk.simple)[3] <- "kcal_per_g"
+summary(milk.simple)
+```
+
+Next, run models with imputed data
+
+```{r}
+# model - intercept only; expect it to be same as above
+m14M2.1 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a,
+    a ~ dnorm(0,10),
+    sigma ~ dcauchy(0, 1) 
+) ,
+  data=milk.simple, iter = 1e4, chains =2 )
+precis(m14M2.1)
+```
+```{r}
+m6.12 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a + bn*neocortex_prop,
+    a ~ dnorm(0,10),
+    sigma ~ dcauchy(0, 1),
+    bn ~ dnorm(0,10)
+) ,
+  data=milk.cc.simple, iter = 1e4, chains =2 )
+precis(m6.12)
+```
+
+Next, add loggmass to equation
+```{r}
+m6.13 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a + bm*logmass,
+    a ~ dnorm(0,10),
+    sigma ~ dcauchy(0, 1),
+    bm ~ dnorm(0,10)
+) ,
+  data=milk.cc.simple, iter = 1e4, chains =2 )
+precis(m6.13)
+
+```
+
+Last, model with both neocortex and mass
+```{r}
+
+m6.14 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a + bm*logmass + bn*neocortex_prop,
+    a ~ dnorm(0,10),
+    sigma ~ dcauchy(0, 1),
+    bm ~ dnorm(0,10),
+    bn ~ dnorm(0,10)
+) ,
+  data=milk.cc.simple, iter = 1e4, chains =2 )
+precis(m6.14)
+
+```
+
+And then compare all to each other using WAIC
+```{r}
+(milk.models <- compare(m6.11, m6.12, m6.13, m6.14))
+```
+The last model is hte clear winner, just as in chapter 6
+
+OK, now repeat but this time impute the neocortext data
+
+First, simplify dataframe.  only need kcal.per.g,  neocortex_prop, logmass
+```{r}
+head(milk)
+milk.simple <- milk[, c(1:3,9,10)]
+colnames(milk.simple)[3] <- "kcal_per_g"
+summary(milk.simple)
+```
+
+Next, run models with imputed data
+
+```{r}
+# model - intercept only; expect it to be same as above
+m14M2.1 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a,
+    a ~ dnorm(0,10),
+    sigma ~ dcauchy(0, 1) 
+) ,
+  data=milk.cc.simple, iter = 1e4, chains =2 )
+precis(m14M2.1)
+```
+
+next, imputation needed
+```{r}
+m14M2.2 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a + bn*neocortex_prop,
+    neocortex_prop ~ dnorm(nu, sigma_N),
+    a ~ dnorm(0,10),
+    bn ~ dnorm(0,10),
+    nu ~ dnorm(0.5, 1),
+    sigma ~ dcauchy(0, 1),
+    sigma_N ~ dcauchy(0,1)
+) ,
+  data=milk.simple, iter = 1e4, chains =2 )
+precis(m14M2.2)
+```
+
+Next, add loggmass to equation
+```{r}
+m14M2.3 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a + bm*logmass,
+    a ~ dnorm(0,10),
+    sigma ~ dcauchy(0, 1),
+    bm ~ dnorm(0,10)
+) ,
+  data=milk.simple, iter = 1e4, chains =2 )
+precis(m14M2.3)
+
+```
+
+Last, model with both neocortex and mass
+```{r}
+
+m14M2.4 <- map2stan(
+  alist(
+    kcal_per_g ~ dnorm( mu, sigma),
+    mu <- a + bm*logmass + bn*neocortex_prop,
+    neocortex_prop ~ dnorm(nu, sigma_N),
+    a ~ dnorm(0,10),
+    sigma ~ dcauchy(0, 1),
+    bm ~ dnorm(0,10),
+    bn ~ dnorm(0,10),
+    nu ~ dnorm(0.5, 1),
+    sigma_N ~ dcauchy(0,1)
+) ,
+  data=milk.simple, iter = 1e4, chains =2 )
+precis(m14M2.4)
+```
+
+Now compare models
+
+```{r}
+(milk.models <- compare(m6.11, m6.12, m6.13, m6.14))
+(milk.models.2 <- compare(m14M2.1, m14M2.2, m14M2.3, m14M2.4))
+```
+
+In both cases, model 4 much preferred.  
+Was there another point to this?
+
+##12M3  Repeat the divorce measurement error models, but double the SE
+
+```{r}
+library(rethinking) 
+data(WaffleDivorce)
+div <- WaffleDivorce
+```
+Now make a new column with double the SE
+```{r}
+div$Div_2xSE <- div$Divorce.SE*2
+```
+Now make a list that includes dta so I can run the model with SE and 2xSE
+
+```{r}
+divlist <- list(
+  div_obs=div$Divorce,
+  div_sd=div$Divorce.SE,
+  div_2xsd = div$Div_2xSE,
+  R=div$Marriage,
+  A=div$MedianAgeMarriage
+)
+```
+
+First, run the model from the book
+```{r}
+m14M3.SE <- map2stan(
+  alist(
+    div_est ~ dnorm(mu,sigma),
+    mu <- a + bA*A + bR*R,
+    div_obs ~ dnorm(div_est,div_sd),
+    a ~ dnorm(0,10),
+    bA ~ dnorm(0,10),
+    bR ~ dnorm(0,10),
+    sigma ~ dcauchy(0,2.5)
+) ,
+  data=divlist ,
+  start=list(div_est=divlist$div_obs) ,
+  WAIC=FALSE , iter=5000 , warmup=1000 , chains=2 , cores=2 ,
+  control=list(adapt_delta=0.95) )
+precis(m14M3.SE, depth = 2)
+```
+
+Now do the same, but with 2x SE
+
+```{r}
+m14M3.2xSE <- map2stan(
+  alist(
+    div_est ~ dnorm(mu,sigma),
+    mu <- a + bA*A + bR*R,
+    div_obs ~ dnorm(div_est,div_2xsd),
+    a ~ dnorm(0,10),
+    bA ~ dnorm(0,10),
+    bR ~ dnorm(0,10),
+    sigma ~ dcauchy(0,2.5)
+) ,
+  data=divlist ,
+  start=list(div_est=divlist$div_obs) ,
+  WAIC=FALSE , iter=5000 , warmup=1000 , chains=2 , cores=2 ,
+  control=list(adapt_delta=0.95) )
+precis(m14M3.2xSE, depth = 2)
+```
+
+Now compare the models
+
+```{r}
+precis(m14M3.SE, depth = 1)
+precis(m14M3.2xSE, depth = 1)
+```
+Note that the model with 2xSE has Rhat greater than 1.  and VERY LOW n_eff
+```{r}
+plot(m14M3.2xSE)
+```
+the chains don't look crazy, but overall I don't trust the 2xSE model.   
